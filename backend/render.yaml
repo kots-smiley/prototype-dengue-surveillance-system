@@ -3,8 +3,11 @@ services:
     name: dengue-surveillance-api
     env: node
     plan: starter
-    buildCommand: npm install && npm run prisma:generate && npm run build
+    region: oregon
+    rootDir: backend
+    buildCommand: npm ci && npm run prisma:generate && npm run build
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,7 +18,10 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: PORT
-        value: 5000
+        fromService:
+          type: web
+          name: dengue-surveillance-api
+          property: port
       - key: FRONTEND_URL
         sync: false
 

@@ -1,0 +1,42 @@
+import { z } from 'zod';
+
+const envSchema = z.object({
+  // Database
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  
+  // JWT
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
+  
+  // Server
+  PORT: z.string().regex(/^\d+$/).transform(Number).default('5000'),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  
+  // CORS
+  FRONTEND_URL: z.string().url().optional(),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+let env: Env;
+
+export function validateEnv(): Env {
+  try {
+    env = envSchema.parse(process.env);
+    return env;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const missingVars = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n');
+      throw new Error(`❌ Environment variable validation failed:\n${missingVars}`);
+    }
+    throw error;
+  }
+}
+
+export function getEnv(): Env {
+  if (!env) {
+    env = validateEnv();
+  }
+  return env;
+}
+

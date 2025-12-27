@@ -1,0 +1,140 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      String
+  barangayId String? @db.ObjectId
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  barangay Barangay? @relation(fields: [barangayId], references: [id])
+  cases    DengueCase[]
+  reports  EnvironmentalReport[]
+  alerts   Alert[]
+  auditLogs AuditLog[]
+
+  @@map("users")
+  @@index([role])
+  @@index([barangayId])
+}
+
+model Barangay {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  code        String   @unique
+  municipality String
+  province    String
+  population  Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  cases       DengueCase[]
+  reports     EnvironmentalReport[]
+  alerts      Alert[]
+
+  @@map("barangays")
+}
+
+model DengueCase {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  barangayId  String     @db.ObjectId
+  reportedBy  String     @db.ObjectId
+  dateReported DateTime
+  age         Int
+  ageGroup    String     // e.g., "0-5", "6-12", "13-18", "19-30", "31-50", "50+"
+  status      String
+  source      String
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  barangay    Barangay   @relation(fields: [barangayId], references: [id])
+  reporter    User       @relation(fields: [reportedBy], references: [id])
+
+  @@map("dengue_cases")
+  @@index([barangayId])
+  @@index([dateReported])
+  @@index([status])
+  @@index([source])
+}
+
+model EnvironmentalReport {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  barangayId    String   @db.ObjectId
+  reportedBy    String   @db.ObjectId
+  dateReported DateTime  @default(now())
+  stagnantWater Boolean  @default(false)
+  poorWasteDisposal Boolean @default(false)
+  cloggedDrainage Boolean @default(false)
+  housingCongestion Boolean @default(false)
+  photoUrl      String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  barangay      Barangay @relation(fields: [barangayId], references: [id])
+  reporter      User     @relation(fields: [reportedBy], references: [id])
+
+  @@map("environmental_reports")
+  @@index([barangayId])
+  @@index([dateReported])
+}
+
+model Alert {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  barangayId  String      @db.ObjectId
+  createdBy   String?     @db.ObjectId
+  title       String
+  message     String
+  riskLevel   String
+  status      String      @default("ACTIVE")
+  triggeredAt DateTime    @default(now())
+  resolvedAt  DateTime?
+  metadata    String?     // JSON string for additional data
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  barangay    Barangay    @relation(fields: [barangayId], references: [id])
+  creator     User?       @relation(fields: [createdBy], references: [id])
+
+  @@map("alerts")
+  @@index([barangayId])
+  @@index([status])
+  @@index([riskLevel])
+  @@index([triggeredAt])
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?  @db.ObjectId
+  action    String   // e.g., "CREATE_CASE", "UPDATE_ALERT", "LOGIN"
+  resource  String?  // e.g., "DengueCase", "Alert"
+  resourceId String?
+  details   String?  // JSON string
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+

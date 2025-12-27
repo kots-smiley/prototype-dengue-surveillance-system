@@ -76,7 +76,7 @@ app.use('/api/exports', exportRoutes);
 // Error handling
 app.use(errorHandler);
 
-const serverPort = PORT || process.env.PORT || 5000;
+const serverPort = Number(PORT || process.env.PORT || 5000);
 app.listen(serverPort, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${serverPort}`);
   console.log(`📊 Environment: ${NODE_ENV}`);

@@ -61,7 +61,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="input"
-              placeholder="admin@dengue.local"
+              placeholder="Enter your email"
             />
           </div>
 
@@ -88,13 +88,6 @@ export default function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div className="mt-6 p-4 bg-gray-50 rounded text-xs text-gray-600">
-          <p className="font-semibold mb-2">Demo Credentials:</p>
-          <p>Admin: admin@dengue.local / admin123</p>
-          <p>BHW: bhw1@dengue.local / bhw123</p>
-          <p>Hospital: hospital@dengue.local / hospital123</p>
-        </div>
       </div>
     </div>
   )

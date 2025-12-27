@@ -308,12 +308,12 @@ export default function Analytics() {
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                 <Legend />
                 <Scatter name="Normal" data={anomalyData.filter(d => !d.isAnomaly)} fill="#10b981">
-                  {anomalyData.filter(d => !d.isAnomaly).map((entry, index) => (
+                  {anomalyData.filter(d => !d.isAnomaly).map((_entry, index) => (
                     <Cell key={`cell-normal-${index}`} fill="#10b981" />
                   ))}
                 </Scatter>
                 <Scatter name="Anomaly" data={anomalyData.filter(d => d.isAnomaly)} fill="#ef4444">
-                  {anomalyData.filter(d => d.isAnomaly).map((entry, index) => (
+                  {anomalyData.filter(d => d.isAnomaly).map((_entry, index) => (
                     <Cell key={`cell-anomaly-${index}`} fill="#ef4444" />
                   ))}
                 </Scatter>
@@ -431,7 +431,7 @@ export default function Analytics() {
               <XAxis dataKey="date" angle={-45} textAnchor="end" height={100} />
               <YAxis />
               <Tooltip 
-                formatter={(value: number, name: string, props: any) => {
+                formatter={(value: number, _name: string, props: any) => {
                   if (props.payload.isPrediction) {
                     return [`${value} (predicted)`, 'Cases']
                   }

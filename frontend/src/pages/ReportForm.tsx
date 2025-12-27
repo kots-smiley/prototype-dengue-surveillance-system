@@ -30,8 +30,7 @@ export default function ReportForm() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
-    watch
+    setValue
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportSchema),
     defaultValues: {

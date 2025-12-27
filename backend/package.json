@@ -10,9 +10,11 @@
         "prisma:generate": "prisma generate",
         "prisma:migrate": "prisma migrate deploy",
         "prisma:migrate:dev": "prisma migrate dev",
+        "prisma:db:push": "prisma db push --skip-generate",
         "prisma:seed": "tsx src/prisma/seed.ts",
         "prisma:studio": "prisma studio",
-        "postinstall": "prisma generate"
+        "postinstall": "prisma generate",
+        "render-build": "npm ci && npm run prisma:generate && npm run build"
     },
     "keywords": [
         "dengue",

@@ -9,7 +9,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   
   // Server
-  PORT: z.string().regex(/^\d+$/).transform(Number).default('5000'),
+  PORT: z.string().regex(/^\d+$/).transform(Number).optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   
   // CORS
@@ -22,14 +22,19 @@ let env: Env;
 
 export function validateEnv(): Env {
   try {
-    env = envSchema.parse(process.env);
-    return env;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n');
+    // Parse with defaults for optional fields
+    const parsed = envSchema.safeParse(process.env);
+    if (!parsed.success) {
+      const missingVars = parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n');
       throw new Error(`❌ Environment variable validation failed:\n${missingVars}`);
     }
-    throw error;
+    env = parsed.data;
+    return env;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Unknown error during environment validation');
   }
 }
 

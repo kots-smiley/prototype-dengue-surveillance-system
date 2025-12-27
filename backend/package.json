@@ -14,7 +14,7 @@
         "prisma:seed": "tsx src/prisma/seed.ts",
         "prisma:studio": "prisma studio",
         "postinstall": "prisma generate",
-        "render-build": "npm ci && npm run prisma:generate && npm run build"
+        "render-build": "npm install && npm run prisma:generate && npm run build"
     },
     "keywords": [
         "dengue",

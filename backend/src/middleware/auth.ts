@@ -12,6 +12,10 @@ export interface AuthRequest extends Request {
         role: string;
         barangayId?: string | null;
     };
+    query: any;
+    params: any;
+    body: any;
+    headers: any;
 }
 
 export const authenticate = async (

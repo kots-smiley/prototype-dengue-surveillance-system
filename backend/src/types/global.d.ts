@@ -3,19 +3,28 @@ declare module 'dotenv' {
 }
 
 declare module 'path' {
-    const path: {
-        resolve(...pathSegments: string[]): string;
-        join(...paths: string[]): string;
-        sep: string;
-        delimiter: string;
-        dirname(p: string): string;
-        basename(p: string, ext?: string): string;
-        extname(p: string): string;
-        normalize(p: string): string;
-        isAbsolute(p: string): boolean;
-        relative(from: string, to: string): string;
+    function resolve(...pathSegments: string[]): string;
+    function join(...paths: string[]): string;
+    const sep: string;
+    const delimiter: string;
+    function dirname(p: string): string;
+    function basename(p: string, ext?: string): string;
+    function extname(p: string): string;
+    function normalize(p: string): string;
+    function isAbsolute(p: string): boolean;
+    function relative(from: string, to: string): string;
+    export = {
+        resolve,
+        join,
+        sep,
+        delimiter,
+        dirname,
+        basename,
+        extname,
+        normalize,
+        isAbsolute,
+        relative
     };
-    export = path;
 }
 
 declare global {

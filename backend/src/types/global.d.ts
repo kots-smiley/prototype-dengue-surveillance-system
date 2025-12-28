@@ -1,11 +1,11 @@
 /// <reference types="node" />
 
 declare global {
-  var console: Console;
-  var process: NodeJS.Process;
-  var global: typeof globalThis;
-  function setImmediate(callback: (...args: any[]) => void, ...args: any[]): NodeJS.Immediate;
+    var console: Console;
+    var process: NodeJS.Process;
+    var global: typeof globalThis;
+    function setImmediate(callback: (...args: any[]) => void, ...args: any[]): NodeJS.Immediate;
 }
 
-export {};
+export { };
 

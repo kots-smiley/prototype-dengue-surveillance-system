@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 declare module 'dotenv' {
     export function config(options?: any): { error?: Error; parsed?: any };
 }

@@ -107,10 +107,14 @@ export const createUser = async (req: AuthRequest, res: Response, next: NextFunc
 
     const user = await prisma.user.create({
       data: {
-        ...data,
+        email: data.email,
         password: hashedPassword,
-        barangayId: data.barangayId || undefined
-      },
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+        barangayId: data.barangayId || null,
+        isActive: data.isActive !== undefined ? data.isActive : true
+      } as any,
       select: {
         id: true,
         email: true,

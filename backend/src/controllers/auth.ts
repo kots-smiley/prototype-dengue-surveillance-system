@@ -86,10 +86,13 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
         const user = await prisma.user.create({
             data: {
-                ...data,
+                email: data.email,
                 password: hashedPassword,
-                barangayId: data.barangayId || undefined
-            },
+                firstName: data.firstName,
+                lastName: data.lastName,
+                role: data.role,
+                barangayId: data.barangayId || null
+            } as any,
             include: { barangay: true }
         });
 

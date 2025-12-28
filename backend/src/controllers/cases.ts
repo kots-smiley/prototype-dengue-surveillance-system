@@ -157,7 +157,7 @@ export const createCase = async (req: AuthRequest, res: Response, next: NextFunc
         age: data.age ?? 0,
         ageGroup: data.ageGroup ?? 'N/A',
         reportedBy: req.user!.id
-      },
+      } as any,
       include: {
         barangay: true,
         reporter: {

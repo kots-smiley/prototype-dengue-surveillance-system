@@ -96,7 +96,7 @@ export const createBarangay = async (req: AuthRequest, res: Response, next: Next
     }
 
     const barangay = await prisma.barangay.create({
-      data
+      data: data as any
     });
 
     res.status(201).json({

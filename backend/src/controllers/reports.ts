@@ -153,7 +153,7 @@ export const createReport = async (req: AuthRequest, res: Response, next: NextFu
         reportedBy: req.user!.id,
         dateReported: data.dateReported || new Date(),
         photoUrl: data.photoUrl || undefined
-      },
+      } as any,
       include: {
         barangay: true,
         reporter: {

@@ -73,6 +73,16 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/exports', exportRoutes);
 
+// Backwards-compatible route aliases (in case a client is missing the /api prefix)
+app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
+app.use('/barangays', barangayRoutes);
+app.use('/cases', caseRoutes);
+app.use('/reports', reportRoutes);
+app.use('/alerts', alertRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/exports', exportRoutes);
+
 // Error handling
 app.use(errorHandler);
 

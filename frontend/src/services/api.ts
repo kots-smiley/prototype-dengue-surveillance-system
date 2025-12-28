@@ -1,8 +1,15 @@
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
+const rawBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '')
+// Always target the API prefix even if VITE_API_URL is set to the bare domain
+const apiBaseUrl = normalizedBaseUrl.endsWith('/api')
+    ? normalizedBaseUrl
+    : `${normalizedBaseUrl}/api`
+
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    baseURL: apiBaseUrl,
     headers: {
         'Content-Type': 'application/json',
     },

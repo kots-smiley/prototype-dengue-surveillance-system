@@ -5,32 +5,30 @@ import { api } from '../services/api'
 export default function Exports() {
   const [loading, setLoading] = useState(false)
 
-  const exportCases = async (format: 'csv' | 'json') => {
+  const downloadBlob = (data: BlobPart, filename: string, mime?: string) => {
+    const blob = new Blob([data], mime ? { type: mime } : undefined)
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
+  const exportCases = async (format: 'csv' | 'xlsx') => {
     setLoading(true)
     try {
       const response = await api.get(`/exports/cases?format=${format}`, {
-        responseType: format === 'csv' ? 'blob' : 'json'
+        responseType: 'blob'
       })
 
-      if (format === 'csv') {
-        const url = window.URL.createObjectURL(new Blob([response.data]))
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', `dengue-cases-${Date.now()}.csv`)
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-      } else {
-        const dataStr = JSON.stringify(response.data, null, 2)
-        const dataBlob = new Blob([dataStr], { type: 'application/json' })
-        const url = window.URL.createObjectURL(dataBlob)
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', `dengue-cases-${Date.now()}.json`)
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-      }
+      downloadBlob(
+        response.data,
+        `dengue-cases-${Date.now()}.${format}`,
+        format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
       toast.success('Cases exported successfully')
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to export cases')
@@ -39,32 +37,18 @@ export default function Exports() {
     }
   }
 
-  const exportReports = async (format: 'csv' | 'json') => {
+  const exportReports = async (format: 'csv' | 'xlsx') => {
     setLoading(true)
     try {
       const response = await api.get(`/exports/reports?format=${format}`, {
-        responseType: format === 'csv' ? 'blob' : 'json'
+        responseType: 'blob'
       })
 
-      if (format === 'csv') {
-        const url = window.URL.createObjectURL(new Blob([response.data]))
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', `environmental-reports-${Date.now()}.csv`)
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-      } else {
-        const dataStr = JSON.stringify(response.data, null, 2)
-        const dataBlob = new Blob([dataStr], { type: 'application/json' })
-        const url = window.URL.createObjectURL(dataBlob)
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', `environmental-reports-${Date.now()}.json`)
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-      }
+      downloadBlob(
+        response.data,
+        `environmental-reports-${Date.now()}.${format}`,
+        format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
       toast.success('Reports exported successfully')
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to export reports')
@@ -73,19 +57,15 @@ export default function Exports() {
     }
   }
 
-  const exportSummary = async () => {
+  const exportSummary = async (format: 'csv' | 'xlsx') => {
     setLoading(true)
     try {
-      const response = await api.get('/exports/summary')
-      const dataStr = JSON.stringify(response.data.summary, null, 2)
-      const dataBlob = new Blob([dataStr], { type: 'application/json' })
-      const url = window.URL.createObjectURL(dataBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `dengue-summary-${Date.now()}.json`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
+      const response = await api.get(`/exports/summary?format=${format}`, { responseType: 'blob' })
+      downloadBlob(
+        response.data,
+        `dengue-summary-${Date.now()}.${format}`,
+        format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
       toast.success('Summary exported successfully')
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to export summary')
@@ -110,11 +90,11 @@ export default function Exports() {
               Export as CSV
             </button>
             <button
-              onClick={() => exportCases('json')}
+              onClick={() => exportCases('xlsx')}
               disabled={loading}
               className="w-full btn btn-secondary"
             >
-              Export as JSON
+              Export as Excel
             </button>
           </div>
         </div>
@@ -130,24 +110,33 @@ export default function Exports() {
               Export as CSV
             </button>
             <button
-              onClick={() => exportReports('json')}
+              onClick={() => exportReports('xlsx')}
               disabled={loading}
               className="w-full btn btn-secondary"
             >
-              Export as JSON
+              Export as Excel
             </button>
           </div>
         </div>
 
         <div className="card">
           <h2 className="text-xl font-semibold mb-4">Export Summary</h2>
-          <button
-            onClick={exportSummary}
-            disabled={loading}
-            className="w-full btn btn-primary"
-          >
-            Export Monthly Summary
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => exportSummary('csv')}
+              disabled={loading}
+              className="w-full btn btn-primary"
+            >
+              Export as CSV
+            </button>
+            <button
+              onClick={() => exportSummary('xlsx')}
+              disabled={loading}
+              className="w-full btn btn-secondary"
+            >
+              Export as Excel
+            </button>
+          </div>
         </div>
       </div>
     </div>

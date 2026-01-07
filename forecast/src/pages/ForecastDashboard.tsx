@@ -87,10 +87,30 @@ function trendText(trend: 'increasing' | 'decreasing' | 'stable') {
   return 'stable'
 }
 
+function useMediaQuery(query: string) {
+  const getMatches = () => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia(query).matches
+  }
+
+  const [matches, setMatches] = useState(getMatches)
+
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const onChange = () => setMatches(mql.matches)
+    onChange()
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [query])
+
+  return matches
+}
+
 export default function ForecastDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [summary, setSummary] = useState<Summary | null>(null)
+  const isMobile = useMediaQuery('(max-width: 639px)')
 
   useEffect(() => {
     const load = async () => {
@@ -140,17 +160,23 @@ export default function ForecastDashboard() {
     upperBand: d.upper,
   }))
 
+  const weekTick = (label: string) => {
+    // "Jan 1–Jan 7" -> "Jan 1" on mobile to reduce clutter
+    if (!isMobile) return label
+    return label.split('–')[0] || label
+  }
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dengue Surveillance Forecast</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dengue Surveillance Forecast</h1>
               <p className="text-sm text-gray-600">Real-time monitoring and forecasting</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              <div className="text-right min-w-[10rem]">
                 <div className="text-[11px] text-gray-500">Last Updated</div>
                 <div className="text-sm font-medium text-gray-800">{headerMeta.lastUpdatedText}</div>
               </div>
@@ -162,10 +188,10 @@ export default function ForecastDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+      <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 min-w-0">
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card">
+          <div className="card min-w-0">
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-sm text-gray-500">Active Cases</div>
@@ -178,7 +204,7 @@ export default function ForecastDashboard() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card min-w-0">
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-sm text-gray-500">Total Cases (This Month)</div>
@@ -191,7 +217,7 @@ export default function ForecastDashboard() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card min-w-0">
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-sm text-gray-500">Forecasted (Next Week)</div>
@@ -204,7 +230,7 @@ export default function ForecastDashboard() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card min-w-0">
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-sm text-gray-500">Critical Regions</div>
@@ -220,18 +246,27 @@ export default function ForecastDashboard() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card">
+          <div className="card min-w-0 overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Cases Forecast (Next 4 Weeks)</h2>
-              <span className="text-xs text-gray-500">Bounds are indicative</span>
+              <span className="text-xs text-gray-500 hidden sm:inline">Bounds are indicative</span>
             </div>
-            <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={forecastChartData} margin={{ top: 10, right: 20, left: 0, bottom: 30 }}>
+            <ResponsiveContainer width="100%" height={isMobile ? 260 : 320}>
+              <AreaChart data={forecastChartData} margin={{ top: 10, right: 16, left: 0, bottom: isMobile ? 8 : 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" angle={-30} textAnchor="end" height={60} interval={0} />
-                <YAxis />
+                <XAxis
+                  dataKey="week"
+                  tickFormatter={weekTick}
+                  angle={isMobile ? 0 : -30}
+                  textAnchor={isMobile ? 'middle' : 'end'}
+                  height={isMobile ? 28 : 60}
+                  interval={0}
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
+                  tickMargin={isMobile ? 6 : 10}
+                />
+                <YAxis width={isMobile ? 30 : 40} tick={{ fontSize: isMobile ? 10 : 12 }} />
                 <Tooltip />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: isMobile ? 11 : 12 }} />
                 <Area type="monotone" dataKey="upperBand" name="Upper Bound" stroke="#93c5fd" fill="#dbeafe" fillOpacity={0.6} />
                 <Area type="monotone" dataKey="lowerBand" name="Lower Bound" stroke="#bfdbfe" fill="#ffffff" fillOpacity={0.0} />
                 <Area type="monotone" dataKey="cases" name="Forecast" stroke="#0284c7" fill="#93c5fd" fillOpacity={0.15} />
@@ -239,21 +274,28 @@ export default function ForecastDashboard() {
             </ResponsiveContainer>
           </div>
 
-          <div className="card">
+          <div className="card min-w-0 overflow-hidden">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Weekly Trends (Last {summary.weeklyTrends.length} Weeks)</h2>
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={summary.weeklyTrends} margin={{ top: 10, right: 20, left: 0, bottom: 30 }}>
+            <ResponsiveContainer width="100%" height={isMobile ? 260 : 320}>
+              <BarChart data={summary.weeklyTrends} margin={{ top: 10, right: 16, left: 0, bottom: isMobile ? 8 : 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="week"
-                  angle={-30}
-                  textAnchor="end"
-                  height={60}
-                  interval={Math.max(0, Math.floor(summary.weeklyTrends.length / 8) - 1)}
+                  tickFormatter={weekTick}
+                  angle={isMobile ? 0 : -30}
+                  textAnchor={isMobile ? 'middle' : 'end'}
+                  height={isMobile ? 28 : 60}
+                  interval={
+                    isMobile
+                      ? Math.max(0, Math.floor(summary.weeklyTrends.length / 4) - 1)
+                      : Math.max(0, Math.floor(summary.weeklyTrends.length / 8) - 1)
+                  }
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
+                  tickMargin={isMobile ? 6 : 10}
                 />
-                <YAxis />
+                <YAxis width={isMobile ? 30 : 40} tick={{ fontSize: isMobile ? 10 : 12 }} />
                 <Tooltip />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: isMobile ? 11 : 12 }} />
                 <Bar dataKey="cases" name="Cases" fill="#2563eb" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -262,21 +304,21 @@ export default function ForecastDashboard() {
 
         {/* Risk + Alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="card lg:col-span-2">
+          <div className="card lg:col-span-2 min-w-0">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Regional Risk Assessment</h2>
             <div className="space-y-3">
               {summary.regionalRiskAssessment.map(r => (
                 <div key={r.id} className={`border rounded-lg p-4 ${riskRowBg(r.riskLevel)}`}>
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                     <div>
                       <div className="font-semibold text-gray-900">{r.name}</div>
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-gray-600 break-words">
                         {r.municipality}, {r.province} • {r.casesReported} cases reported (30d)
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="sm:text-right flex sm:block items-center gap-2 sm:gap-0">
                       <div className={riskBadge(r.riskLevel)}>{r.riskLevel}</div>
-                      <div className="text-xs text-gray-600 mt-1">{trendText(r.trend)}</div>
+                      <div className="text-xs text-gray-600 sm:mt-1">{trendText(r.trend)}</div>
                     </div>
                   </div>
                 </div>
@@ -290,7 +332,7 @@ export default function ForecastDashboard() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card min-w-0">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Alerts</h2>
             <div className="space-y-3">
               {summary.activeAlerts.map(a => (
@@ -304,11 +346,11 @@ export default function ForecastDashboard() {
                       : 'bg-blue-50 border-blue-200'
                   }`}
                 >
-                  <div className="text-sm font-semibold text-gray-900">{a.title}</div>
+                  <div className="text-sm font-semibold text-gray-900 break-words">{a.title}</div>
                   {a.barangay && (
                     <div className="text-xs text-gray-600 mt-0.5">{a.barangay.name}</div>
                   )}
-                  <div className="text-xs text-gray-700 mt-2 leading-5">{a.message}</div>
+                  <div className="text-xs text-gray-700 mt-2 leading-5 break-words">{a.message}</div>
                   <div className="text-[11px] text-gray-500 mt-2">
                     {a.triggeredAt ? format(new Date(a.triggeredAt), 'PPp') : ''}
                   </div>

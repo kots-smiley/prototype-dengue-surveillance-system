@@ -16,4 +16,17 @@ npm run dev
 
 - Copy `env.example` to `.env` and set `VITE_API_URL` if needed.
 
+## Deploy to Vercel
+
+In Vercel:
+
+- **Framework preset**: Vite
+- **Root Directory**: `forecast`
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Install Command**: `npm install`
+- **Environment Variables**:
+  - `VITE_API_URL=https://your-backend.onrender.com` (do **not** include `/api` — the app appends it)
+
+
 

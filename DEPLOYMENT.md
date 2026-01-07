@@ -121,6 +121,40 @@ Follow the prompts and set environment variables when asked.
 
 6. Click "Deploy"
 
+## Public Forecast Site Deployment (Vercel)
+
+This repo also includes a **public, no-login** forecast site in `forecast/`.
+
+### Deploy to Vercel (Dashboard)
+
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Click "Add New..." → "Project"
+3. Import your GitHub repository
+4. Configure:
+   - **Framework Preset**: Vite
+   - **Root Directory**: `forecast`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+   - **Install Command**: `npm install`
+
+5. Add Environment Variable:
+   ```
+   VITE_API_URL=https://your-backend.onrender.com
+   ```
+   (Do **not** include `/api` — the app appends it.)
+
+6. Click "Deploy"
+
+### Update Backend CORS (Render)
+
+Add the forecast site URL to the backend env var in Render:
+
+```
+FRONTEND_URLS=https://your-frontend.vercel.app,https://your-forecast.vercel.app
+```
+
+Then restart the backend service.
+
 ### Step 3: Update Backend CORS
 
 After getting your Vercel frontend URL, update the backend's `FRONTEND_URL` environment variable in Render:

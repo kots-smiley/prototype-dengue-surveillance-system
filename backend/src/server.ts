@@ -29,16 +29,33 @@ import reportRoutes from './routes/reports';
 import alertRoutes from './routes/alerts';
 import dashboardRoutes from './routes/dashboard';
 import exportRoutes from './routes/exports';
+import publicRoutes from './routes/public';
 
 import { getEnv } from './utils/env';
 
 const app = express();
-const { PORT, FRONTEND_URL, NODE_ENV } = getEnv();
+const { PORT, FRONTEND_URL, FRONTEND_URLS, NODE_ENV } = getEnv();
 
 // Middleware - CORS Configuration
-const allowedOrigins = FRONTEND_URL
-  ? [FRONTEND_URL]
-  : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000'];
+const defaultDevOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+];
+
+const extraOrigins = (FRONTEND_URLS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([
+  ...(FRONTEND_URL ? [FRONTEND_URL] : []),
+  ...extraOrigins,
+  ...defaultDevOrigins
+]));
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -72,6 +89,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/exports', exportRoutes);
+app.use('/api/public', publicRoutes);
 
 // Backwards-compatible route aliases (in case a client is missing the /api prefix)
 app.use('/auth', authRoutes);
@@ -82,6 +100,7 @@ app.use('/reports', reportRoutes);
 app.use('/alerts', alertRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/exports', exportRoutes);
+app.use('/public', publicRoutes);
 
 // Error handling
 app.use(errorHandler);

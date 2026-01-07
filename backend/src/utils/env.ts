@@ -3,17 +3,19 @@ import { z } from 'zod';
 const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  
+
   // JWT
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  
+
   // Server
   PORT: z.string().regex(/^\d+$/).transform(Number).optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  
+
   // CORS
   FRONTEND_URL: z.string().url().optional(),
+  // Optional additional frontend origins (comma-separated), useful when hosting multiple frontends
+  FRONTEND_URLS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -10,6 +10,14 @@ export default function Cases() {
   const [cases, setCases] = useState<DengueCase[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+  const [pagination, setPagination] = useState<{ page: number; limit: number; total: number; pages: number }>({
+    page: 1,
+    limit: 50,
+    total: 0,
+    pages: 1
+  })
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; caseId: string | null }>({
     isOpen: false,
     caseId: null
@@ -22,19 +30,33 @@ export default function Cases() {
   })
 
   useEffect(() => {
-    fetchCases()
-  }, [filters])
+    // Reset to first page when filters change
+    setPage(1)
+  }, [filters.status, filters.source, filters.startDate, filters.endDate])
 
-  const fetchCases = async () => {
+  useEffect(() => {
+    fetchCases(page, pageSize)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, page, pageSize])
+
+  const fetchCases = async (pageToLoad: number, limitToLoad: number) => {
     try {
+      setLoading(true)
       const params = new URLSearchParams()
       if (filters.status) params.append('status', filters.status)
       if (filters.source) params.append('source', filters.source)
       if (filters.startDate) params.append('startDate', filters.startDate)
       if (filters.endDate) params.append('endDate', filters.endDate)
+      params.append('page', String(pageToLoad))
+      params.append('limit', String(limitToLoad))
 
       const response = await api.get(`/cases?${params.toString()}`)
       setCases(response.data.cases)
+      if (response.data.pagination) {
+        setPagination(response.data.pagination)
+      } else {
+        setPagination({ page: pageToLoad, limit: limitToLoad, total: response.data.cases?.length || 0, pages: 1 })
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to load cases')
     } finally {
@@ -48,7 +70,12 @@ export default function Cases() {
     try {
       await api.delete(`/cases/${deleteDialog.caseId}`)
       toast.success('Case deleted successfully')
-      fetchCases()
+      // If we deleted the last item on the page, step back a page if possible
+      const remainingOnPage = cases.length - 1
+      const shouldGoBack = remainingOnPage <= 0 && page > 1
+      const nextPage = shouldGoBack ? page - 1 : page
+      setPage(nextPage)
+      fetchCases(nextPage, pageSize)
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to delete case')
     }
@@ -80,6 +107,11 @@ export default function Cases() {
   if (loading) {
     return <div className="text-center py-8">Loading cases...</div>
   }
+
+  const total = pagination.total || 0
+  const totalPages = pagination.pages || 1
+  const startIdx = total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1
+  const endIdx = total === 0 ? 0 : Math.min(pagination.page * pagination.limit, total)
 
   return (
     <div className="space-y-6">
@@ -164,6 +196,50 @@ export default function Cases() {
 
       {/* Cases Table */}
       <div className="card overflow-x-auto">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <div className="text-sm text-gray-600">
+            Showing <span className="font-semibold text-gray-900">{startIdx}</span>–
+            <span className="font-semibold text-gray-900">{endIdx}</span> of{' '}
+            <span className="font-semibold text-gray-900">{total.toLocaleString()}</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Rows</label>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(parseInt(e.target.value, 10))}
+                className="input py-1"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                Prev
+              </button>
+              <span className="text-sm text-gray-700">
+                Page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages}</span>
+              </span>
+              <button
+                className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

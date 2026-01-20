@@ -34,16 +34,17 @@ export default function Analytics() {
   const [anomalies, setAnomalies] = useState<string[]>([])
   const [predictions, setPredictions] = useState<any[]>([])
   const [riskScores, setRiskScores] = useState<any[]>([])
+  const [historyMonths, setHistoryMonths] = useState(24) // include last 2 years by default
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [historyMonths])
 
   const fetchData = async () => {
     try {
       const [barangayRes, timeSeriesRes] = await Promise.all([
         api.get('/dashboard/barangay-cases'),
-        api.get('/dashboard/time-series?months=12')
+        api.get(`/dashboard/time-series?months=${historyMonths}`)
       ])
       setBarangayData(barangayRes.data.data)
       setTimeSeriesData(timeSeriesRes.data.timeSeries)
@@ -232,7 +233,30 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
+<<<<<<< HEAD
       <h1 className="text-3xl font-bold text-gray-900">ML Analytics Dashboard</h1>
+=======
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">ML Analytics Dashboard</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Advanced analysis based on dengue cases and environmental risk reports
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-700">History range:</label>
+          <select
+            className="input max-w-[8rem]"
+            value={historyMonths}
+            onChange={(e) => setHistoryMonths(parseInt(e.target.value, 10))}
+          >
+            <option value={12}>Last 12 months</option>
+            <option value={24}>Last 24 months</option>
+            <option value={36}>Last 36 months</option>
+          </select>
+        </div>
+      </div>
+>>>>>>> 10217a5 (Add history range selector to Analytics dashboard)
 
       {/* 1. Clustering Visualization */}
       <div className="card">

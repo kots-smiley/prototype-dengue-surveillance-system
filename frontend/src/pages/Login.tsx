@@ -1,96 +1,78 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router'
-import toast from 'react-hot-toast'
-import { useAuth } from '../contexts/AuthContext'
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import toast from 'react-hot-toast';
+import { useAuth } from '../hooks/useAuth';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
+import { Spinner } from '../components/ui/Spinner';
+import { ApiError } from '../utils/api-client';
+import { APP_NAME, APP_FULL_NAME, APP_LOCATION } from '../configuration/constants';
 
 export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const { login, user, loading: authLoading } = useAuth()
-  const navigate = useNavigate()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { login, user, loading } = useAuth();
+  const navigate = useNavigate();
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/dashboard', { replace: true })
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, authLoading, navigate])
+  }, [user, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
+    e.preventDefault();
+    setSubmitting(true);
     try {
-      await login(email, password)
-      toast.success('Login successful!')
-          navigate('/dashboard', { replace: true })
-    } catch (err: any) {
-      toast.error(err.message || err.response?.data?.error || 'Login failed. Please check your credentials.')
-      setLoading(false)
+      await login(email, password);
+      toast.success('Login successful');
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : 'Login failed. Please check your credentials.';
+      toast.error(message);
+      setSubmitting(false);
     }
-  }
+  };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+  if (loading) {
+    return <Spinner fullScreen />;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600 mb-2">
-            Dengue Surveillance System
-          </h1>
-          <p className="text-gray-600">Sign in to your account</p>
+          <h1 className="text-3xl font-bold text-primary-600 mb-1">{APP_NAME}</h1>
+          <p className="text-sm text-gray-500">{APP_FULL_NAME.split('—')[1]?.trim()}</p>
+          <p className="text-xs text-gray-400 mt-1">{APP_LOCATION}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="input"
-              placeholder="Enter your email"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="input"
-              placeholder="Enter your password"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full btn btn-primary"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+          <Input
+            id="email"
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="Enter your email"
+          />
+          <Input
+            id="password"
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="Enter your password"
+          />
+          <Button type="submit" disabled={submitting} className="w-full">
+            {submitting ? 'Signing in...' : 'Sign In'}
+          </Button>
         </form>
       </div>
     </div>
-  )
+  );
 }
-
-

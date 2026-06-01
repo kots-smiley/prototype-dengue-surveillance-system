@@ -1,4 +1,6 @@
-// This is your Prisma schema file
+// HealthWatch - Multi-Disease Surveillance & Early Warning System
+// Prisma schema (MongoDB)
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,133 +10,200 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------------------------------------------------------------------------
+// Users & Authentication
+// ---------------------------------------------------------------------------
 model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  role      String
-  barangayId String? @db.ObjectId
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  email      String   @unique
+  password   String
+  firstName  String
+  lastName   String
+  role       String // ADMIN | BHW | HOSPITAL_ENCODER | RESIDENT
+  barangayId String?  @db.ObjectId
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  barangay Barangay? @relation(fields: [barangayId], references: [id])
-  cases    DengueCase[]
-  reports  EnvironmentalReport[]
-  alerts   Alert[]
+  barangay  Barangay?  @relation(fields: [barangayId], references: [id])
+  cases     Case[]
+  reports   RiskReport[]
+  alerts    Alert[]
   auditLogs AuditLog[]
 
-  @@map("users")
   @@index([role])
   @@index([barangayId])
+  @@map("users")
 }
 
+// ---------------------------------------------------------------------------
+// Barangays (geographic units within the municipality)
+// ---------------------------------------------------------------------------
 model Barangay {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String   @unique
-  code        String   @unique
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String   @unique
+  code         String   @unique
   municipality String
-  province    String
-  population  Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  province     String
+  population   Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  users       User[]
-  cases       DengueCase[]
-  reports     EnvironmentalReport[]
-  alerts      Alert[]
+  users   User[]
+  cases   Case[]
+  reports RiskReport[]
+  alerts  Alert[]
 
   @@map("barangays")
 }
 
-model DengueCase {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  barangayId  String     @db.ObjectId
-  reportedBy  String     @db.ObjectId
+// ---------------------------------------------------------------------------
+// Disease registry (configurable by the RHU/admin)
+// ---------------------------------------------------------------------------
+model Disease {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String   @unique
+  code            String   @unique
+  category        String // VECTOR_BORNE | WATER_BORNE | AIRBORNE | DIRECT_CONTACT | OTHER
+  description     String?
+  isNotifiable    Boolean  @default(true) // PIDSR notifiable disease flag
+  isActive        Boolean  @default(true)
+  color           String? // hex color for UI badges/charts
+  seasonalMonths  Int[]    @default([]) // months (1-12) of elevated transmission
+  caseThreshold   Int      @default(10) // monthly case count that escalates to HIGH
+  spikePercentage Int      @default(50) // % increase vs previous month that triggers an alert
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  cases  Case[]
+  alerts Alert[]
+
+  @@index([category])
+  @@index([isActive])
+  @@map("diseases")
+}
+
+// ---------------------------------------------------------------------------
+// Cases (generalized from DengueCase to any disease)
+// ---------------------------------------------------------------------------
+model Case {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  diseaseId    String    @db.ObjectId
+  barangayId   String    @db.ObjectId
+  reportedBy   String    @db.ObjectId
   dateReported DateTime
-  age         Int
-  ageGroup    String     // e.g., "0-5", "6-12", "13-18", "19-30", "31-50", "50+"
-  status      String
-  source      String
-  notes       String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  onsetDate    DateTime?
+  age          Int
+  ageGroup     String // "0-5", "6-12", "13-18", "19-30", "31-50", "50+"
+  sex          String? // MALE | FEMALE
+  status       String // SUSPECTED | PROBABLE | CONFIRMED
+  outcome      String    @default("ONGOING") // ONGOING | RECOVERED | DIED
+  source       String // PUBLIC_HOSPITAL | PRIVATE_HOSPITAL | RHU | BHW
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  barangay    Barangay   @relation(fields: [barangayId], references: [id])
-  reporter    User       @relation(fields: [reportedBy], references: [id])
+  disease  Disease  @relation(fields: [diseaseId], references: [id])
+  barangay Barangay @relation(fields: [barangayId], references: [id])
+  reporter User     @relation(fields: [reportedBy], references: [id])
 
-  @@map("dengue_cases")
+  @@index([diseaseId])
   @@index([barangayId])
   @@index([dateReported])
   @@index([status])
   @@index([source])
+  @@map("cases")
 }
 
-model EnvironmentalReport {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  barangayId    String   @db.ObjectId
-  reportedBy    String   @db.ObjectId
-  dateReported DateTime  @default(now())
-  stagnantWater Boolean  @default(false)
+// ---------------------------------------------------------------------------
+// Risk reports (generalized from EnvironmentalReport; factors by category)
+// ---------------------------------------------------------------------------
+model RiskReport {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  barangayId   String   @db.ObjectId
+  reportedBy   String   @db.ObjectId
+  category     String // VECTOR_BORNE | WATER_BORNE | AIRBORNE
+  dateReported DateTime @default(now())
+
+  // Vector-borne factors (e.g. dengue, malaria)
+  stagnantWater     Boolean @default(false)
   poorWasteDisposal Boolean @default(false)
-  cloggedDrainage Boolean @default(false)
+  cloggedDrainage   Boolean @default(false)
   housingCongestion Boolean @default(false)
-  photoUrl      String?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 
-  barangay      Barangay @relation(fields: [barangayId], references: [id])
-  reporter      User     @relation(fields: [reportedBy], references: [id])
+  // Water-borne factors (e.g. typhoid, cholera, leptospirosis)
+  unsafeWaterSource Boolean @default(false)
+  poorSanitation    Boolean @default(false)
+  openDefecation    Boolean @default(false)
+  foodContamination Boolean @default(false)
 
-  @@map("environmental_reports")
+  // Airborne factors (e.g. influenza, measles, TB, COVID-19)
+  overcrowding          Boolean @default(false)
+  poorVentilation       Boolean @default(false)
+  activeRespiratoryCase Boolean @default(false)
+
+  photoUrl  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  barangay Barangay @relation(fields: [barangayId], references: [id])
+  reporter User     @relation(fields: [reportedBy], references: [id])
+
   @@index([barangayId])
+  @@index([category])
   @@index([dateReported])
+  @@map("risk_reports")
 }
 
+// ---------------------------------------------------------------------------
+// Early-warning alerts (now per-disease per-barangay)
+// ---------------------------------------------------------------------------
 model Alert {
-  id          String      @id @default(auto()) @map("_id") @db.ObjectId
-  barangayId  String      @db.ObjectId
-  createdBy   String?     @db.ObjectId
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  barangayId  String    @db.ObjectId
+  diseaseId   String?   @db.ObjectId
+  createdBy   String?   @db.ObjectId
   title       String
   message     String
-  riskLevel   String
-  status      String      @default("ACTIVE")
-  triggeredAt DateTime    @default(now())
+  riskLevel   String // LOW | MEDIUM | HIGH
+  status      String    @default("ACTIVE") // ACTIVE | RESOLVED | DISMISSED
+  triggeredAt DateTime  @default(now())
   resolvedAt  DateTime?
-  metadata    String?     // JSON string for additional data
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  metadata    String? // JSON string with supporting numbers
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  barangay    Barangay    @relation(fields: [barangayId], references: [id])
-  creator     User?       @relation(fields: [createdBy], references: [id])
+  barangay Barangay @relation(fields: [barangayId], references: [id])
+  disease  Disease? @relation(fields: [diseaseId], references: [id])
+  creator  User?    @relation(fields: [createdBy], references: [id])
 
-  @@map("alerts")
   @@index([barangayId])
+  @@index([diseaseId])
   @@index([status])
   @@index([riskLevel])
   @@index([triggeredAt])
+  @@map("alerts")
 }
 
+// ---------------------------------------------------------------------------
+// Audit trail
+// ---------------------------------------------------------------------------
 model AuditLog {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String?  @db.ObjectId
-  action    String   // e.g., "CREATE_CASE", "UPDATE_ALERT", "LOGIN"
-  resource  String?  // e.g., "DengueCase", "Alert"
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String?  @db.ObjectId
+  action     String
+  resource   String?
   resourceId String?
-  details   String?  // JSON string
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  details    String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
-  user     User?     @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
-  @@map("audit_logs")
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@map("audit_logs")
 }
-
-

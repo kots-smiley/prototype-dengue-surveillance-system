@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { format } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -11,132 +11,130 @@ import {
   BarChart,
   Bar,
   Legend,
-} from 'recharts'
-import { api } from '../services/api'
+} from 'recharts';
+import { apiGet } from '../services/api';
 
-type RiskLevelUi = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
+type RiskLevelUi = 'LOW' | 'MEDIUM' | 'HIGH';
 
-type Summary = {
-  meta: {
-    lastUpdated: string
-    systemActive: boolean
-  }
+interface PublicDisease {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+  color?: string | null;
+}
+
+interface Summary {
+  meta: { lastUpdated: string; systemActive: boolean };
   stats: {
-    activeCases: number
-    totalCasesThisMonth: number
-    forecastNextWeek: number
-    criticalRegions: number
-  }
-  weeklyTrends: Array<{ week: string; cases: number }>
-  forecastNext4Weeks: Array<{ week: string; cases: number; lower: number; upper: number }>
+    activeCases: number;
+    totalCasesThisMonth: number;
+    forecastNextWeek: number;
+    criticalRegions: number;
+  };
+  weeklyTrends: Array<{ week: string; cases: number }>;
+  forecastNext4Weeks: Array<{ week: string; cases: number; lower: number; upper: number }>;
   regionalRiskAssessment: Array<{
-    id: string
-    name: string
-    municipality: string
-    province: string
-    casesReported: number
-    riskScore: number
-    riskLevel: RiskLevelUi
-    trend: 'increasing' | 'decreasing' | 'stable'
-  }>
+    id: string;
+    name: string;
+    municipality: string;
+    province: string;
+    casesReported: number;
+    riskScore: number;
+    riskLevel: RiskLevelUi;
+    trend: 'increasing' | 'decreasing' | 'stable';
+  }>;
   activeAlerts: Array<{
-    id: string
-    title: string
-    message: string
-    riskLevel: string
-    status: string
-    triggeredAt: string
-    barangay: null | {
-      id: string
-      name: string
-      municipality: string
-      province: string
-    }
-  }>
+    id: string;
+    title: string;
+    message: string;
+    riskLevel: string;
+    status: string;
+    triggeredAt: string;
+    disease: null | { id: string; name: string; code: string };
+    barangay: null | { id: string; name: string; municipality: string; province: string };
+  }>;
 }
 
 function riskBadge(level: RiskLevelUi) {
   switch (level) {
-    case 'CRITICAL':
-      return 'badge badge-danger'
     case 'HIGH':
-      return 'badge badge-warning'
-    case 'MODERATE':
-      return 'badge badge-info'
+      return 'badge badge-danger';
+    case 'MEDIUM':
+      return 'badge badge-warning';
     default:
-      return 'badge badge-success'
+      return 'badge badge-success';
   }
 }
 
 function riskRowBg(level: RiskLevelUi) {
   switch (level) {
-    case 'CRITICAL':
-      return 'bg-red-50 border-red-200'
     case 'HIGH':
-      return 'bg-orange-50 border-orange-200'
-    case 'MODERATE':
-      return 'bg-yellow-50 border-yellow-200'
+      return 'bg-red-50 border-red-200';
+    case 'MEDIUM':
+      return 'bg-yellow-50 border-yellow-200';
     default:
-      return 'bg-green-50 border-green-200'
+      return 'bg-green-50 border-green-200';
   }
-}
-
-function trendText(trend: 'increasing' | 'decreasing' | 'stable') {
-  if (trend === 'increasing') return 'increasing'
-  if (trend === 'decreasing') return 'decreasing'
-  return 'stable'
 }
 
 function useMediaQuery(query: string) {
-  const getMatches = () => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia(query).matches
-  }
-
-  const [matches, setMatches] = useState(getMatches)
-
+  const [matches, setMatches] = useState(
+    typeof window !== 'undefined' ? window.matchMedia(query).matches : false
+  );
   useEffect(() => {
-    const mql = window.matchMedia(query)
-    const onChange = () => setMatches(mql.matches)
-    onChange()
-    mql.addEventListener('change', onChange)
-    return () => mql.removeEventListener('change', onChange)
-  }, [query])
-
-  return matches
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
 }
 
 export default function ForecastDashboard() {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [summary, setSummary] = useState<Summary | null>(null)
-  const isMobile = useMediaQuery('(max-width: 639px)')
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [diseases, setDiseases] = useState<PublicDisease[]>([]);
+  const [diseaseId, setDiseaseId] = useState('');
+  const isMobile = useMediaQuery('(max-width: 639px)');
+
+  useEffect(() => {
+    apiGet<{ diseases: PublicDisease[] }>('/public/diseases')
+      .then((data) => setDiseases(data.diseases))
+      .catch(() => setDiseases([]));
+  }, []);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        setError(null)
-        const res = await api.get('/public/forecast/summary')
-        setSummary(res.data)
-      } catch (e: any) {
-        setError(e?.response?.data?.error || 'Failed to load forecast data')
+        const query = diseaseId ? `?diseaseId=${diseaseId}` : '';
+        const data = await apiGet<Summary>(`/public/forecast/summary${query}`);
+        setSummary(data);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load forecast data');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    load()
-  }, [])
+    };
+    load();
+  }, [diseaseId]);
 
   const headerMeta = useMemo(() => {
-    const lastUpdated = summary?.meta?.lastUpdated ? new Date(summary.meta.lastUpdated) : null
+    const lastUpdated = summary?.meta?.lastUpdated ? new Date(summary.meta.lastUpdated) : null;
     return {
       lastUpdatedText: lastUpdated ? format(lastUpdated, 'MMM d, yyyy HH:mm') : '—',
       systemActive: summary?.meta?.systemActive ?? false,
-    }
-  }, [summary])
+    };
+  }, [summary]);
+
+  const selectedDiseaseName = diseases.find((d) => d.id === diseaseId)?.name ?? 'All Diseases';
 
   if (loading) {
-    return <div className="text-center py-10 text-gray-600">Loading forecast...</div>
+    return <div className="text-center py-10 text-gray-600">Loading forecast...</div>;
   }
 
   if (error || !summary) {
@@ -146,25 +144,20 @@ export default function ForecastDashboard() {
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Unable to load forecast</h1>
           <p className="text-sm text-gray-700">{error || 'Unknown error'}</p>
           <p className="text-xs text-gray-500 mt-3">
-            Tip: ensure the backend is running and `VITE_API_URL` points to it.
+            Tip: ensure the backend is running and VITE_API_URL points to it.
           </p>
         </div>
       </div>
-    )
+    );
   }
 
-  const forecastChartData = summary.forecastNext4Weeks.map(d => ({
+  const forecastChartData = summary.forecastNext4Weeks.map((d) => ({
     ...d,
-    // For nicer chart ordering, keep numeric values
     lowerBand: d.lower,
     upperBand: d.upper,
-  }))
+  }));
 
-  const weekTick = (label: string) => {
-    // "Jan 1–Jan 7" -> "Jan 1" on mobile to reduce clutter
-    if (!isMobile) return label
-    return label.split('–')[0] || label
-  }
+  const weekTick = (label: string) => (isMobile ? label.split('-')[0] || label : label);
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -172,8 +165,12 @@ export default function ForecastDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dengue Surveillance Forecast</h1>
-              <p className="text-sm text-gray-600">Real-time monitoring and forecasting</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                HealthWatch Public Forecast
+              </h1>
+              <p className="text-sm text-gray-600">
+                Multi-disease surveillance — Municipality of Lopez, Quezon
+              </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <div className="text-right min-w-[10rem]">
@@ -185,70 +182,54 @@ export default function ForecastDashboard() {
               </span>
             </div>
           </div>
+
+          <div className="mt-4 max-w-xs">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Filter by disease</label>
+            <select
+              value={diseaseId}
+              onChange={(e) => setDiseaseId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="">All diseases</option>
+              {diseases.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 min-w-0">
-        {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card min-w-0">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-sm text-gray-500">Active Cases</div>
-                <div className="text-3xl font-bold text-gray-900 mt-1">{summary.stats.activeCases.toLocaleString()}</div>
-                <div className="text-xs text-gray-500 mt-1">Last 7 days</div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                <div className="w-5 h-5 bg-blue-500 rounded" />
-              </div>
-            </div>
-          </div>
-
-          <div className="card min-w-0">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-sm text-gray-500">Total Cases (This Month)</div>
-                <div className="text-3xl font-bold text-gray-900 mt-1">{summary.stats.totalCasesThisMonth.toLocaleString()}</div>
-                <div className="text-xs text-gray-500 mt-1">Month to date</div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                <div className="w-5 h-5 bg-purple-500 rounded" />
-              </div>
-            </div>
-          </div>
-
-          <div className="card min-w-0">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-sm text-gray-500">Forecasted (Next Week)</div>
-                <div className="text-3xl font-bold text-gray-900 mt-1">{summary.stats.forecastNextWeek.toLocaleString()}</div>
-                <div className="text-xs text-gray-500 mt-1">Model projection</div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
-                <div className="w-5 h-5 bg-orange-500 rounded" />
-              </div>
-            </div>
-          </div>
-
-          <div className="card min-w-0">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-sm text-gray-500">Critical Regions</div>
-                <div className="text-3xl font-bold text-gray-900 mt-1">{summary.stats.criticalRegions.toLocaleString()}</div>
-                <div className="text-xs text-gray-500 mt-1">High or critical risk</div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
-                <div className="w-5 h-5 bg-red-500 rounded" />
-              </div>
-            </div>
-          </div>
+          <StatCard label="Active Cases" hint="Last 7 days" value={summary.stats.activeCases} accent="bg-blue-500" />
+          <StatCard
+            label="Total Cases (This Month)"
+            hint="Month to date"
+            value={summary.stats.totalCasesThisMonth}
+            accent="bg-purple-500"
+          />
+          <StatCard
+            label="Forecasted (Next Week)"
+            hint="Statistical projection"
+            value={summary.stats.forecastNextWeek}
+            accent="bg-orange-500"
+          />
+          <StatCard
+            label="High-Risk Regions"
+            hint="Barangays at high risk"
+            value={summary.stats.criticalRegions}
+            accent="bg-red-500"
+          />
         </div>
 
-        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card min-w-0 overflow-hidden">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Cases Forecast (Next 4 Weeks)</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Forecast (Next 4 Weeks) — {selectedDiseaseName}
+              </h2>
               <span className="text-xs text-gray-500 hidden sm:inline">Bounds are indicative</span>
             </div>
             <ResponsiveContainer width="100%" height={isMobile ? 260 : 320}>
@@ -275,7 +256,9 @@ export default function ForecastDashboard() {
           </div>
 
           <div className="card min-w-0 overflow-hidden">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Weekly Trends (Last {summary.weeklyTrends.length} Weeks)</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Weekly Trends (Last {summary.weeklyTrends.length} Weeks)
+            </h2>
             <ResponsiveContainer width="100%" height={isMobile ? 260 : 320}>
               <BarChart data={summary.weeklyTrends} margin={{ top: 10, right: 16, left: 0, bottom: isMobile ? 8 : 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -302,23 +285,22 @@ export default function ForecastDashboard() {
           </div>
         </div>
 
-        {/* Risk + Alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="card lg:col-span-2 min-w-0">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Regional Risk Assessment</h2>
             <div className="space-y-3">
-              {summary.regionalRiskAssessment.map(r => (
+              {summary.regionalRiskAssessment.map((r) => (
                 <div key={r.id} className={`border rounded-lg p-4 ${riskRowBg(r.riskLevel)}`}>
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                     <div>
                       <div className="font-semibold text-gray-900">{r.name}</div>
                       <div className="text-xs text-gray-600 break-words">
-                        {r.municipality}, {r.province} • {r.casesReported} cases reported (30d)
+                        {r.municipality}, {r.province} • {r.casesReported} cases (30d)
                       </div>
                     </div>
                     <div className="sm:text-right flex sm:block items-center gap-2 sm:gap-0">
                       <div className={riskBadge(r.riskLevel)}>{r.riskLevel}</div>
-                      <div className="text-xs text-gray-600 sm:mt-1">{trendText(r.trend)}</div>
+                      <div className="text-xs text-gray-600 sm:mt-1">{r.trend}</div>
                     </div>
                   </div>
                 </div>
@@ -327,29 +309,28 @@ export default function ForecastDashboard() {
                 <div className="text-sm text-gray-600">No risk assessment data available.</div>
               )}
             </div>
-            <div className="mt-4 text-xs text-gray-500">
-              Risk legend: LOW, MODERATE, HIGH, CRITICAL
-            </div>
+            <div className="mt-4 text-xs text-gray-500">Risk legend: LOW, MEDIUM, HIGH</div>
           </div>
 
           <div className="card min-w-0">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Alerts</h2>
             <div className="space-y-3">
-              {summary.activeAlerts.map(a => (
+              {summary.activeAlerts.map((a) => (
                 <div
                   key={a.id}
                   className={`border rounded-lg p-4 ${
                     a.riskLevel === 'HIGH'
                       ? 'bg-red-50 border-red-200'
                       : a.riskLevel === 'MEDIUM'
-                      ? 'bg-yellow-50 border-yellow-200'
-                      : 'bg-blue-50 border-blue-200'
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-blue-50 border-blue-200'
                   }`}
                 >
                   <div className="text-sm font-semibold text-gray-900 break-words">{a.title}</div>
-                  {a.barangay && (
-                    <div className="text-xs text-gray-600 mt-0.5">{a.barangay.name}</div>
-                  )}
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    {a.disease ? `${a.disease.name} • ` : ''}
+                    {a.barangay?.name ?? ''}
+                  </div>
                   <div className="text-xs text-gray-700 mt-2 leading-5 break-words">{a.message}</div>
                   <div className="text-[11px] text-gray-500 mt-2">
                     {a.triggeredAt ? format(new Date(a.triggeredAt), 'PPp') : ''}
@@ -364,7 +345,32 @@ export default function ForecastDashboard() {
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-
+function StatCard({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  accent: string;
+}) {
+  return (
+    <div className="card min-w-0">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-sm text-gray-500">{label}</div>
+          <div className="text-3xl font-bold text-gray-900 mt-1">{value.toLocaleString()}</div>
+          <div className="text-xs text-gray-500 mt-1">{hint}</div>
+        </div>
+        <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
+          <div className={`w-5 h-5 ${accent} rounded`} />
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -9,6 +9,9 @@ node_modules/
 # Production
 /build
 /dist
+forecast/dist
+frontend/dist
+backend/dist
 
 # Misc
 .DS_Store
@@ -45,6 +48,7 @@ backend/prisma/dev.db-journal
 .env.*.local
 backend/.env
 frontend/.env
+forecast/.env
 
 # OS
 Thumbs.db

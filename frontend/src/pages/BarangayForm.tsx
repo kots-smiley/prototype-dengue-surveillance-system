@@ -1,181 +1,123 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import toast from 'react-hot-toast'
-import { api } from '../services/api'
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import toast from 'react-hot-toast';
+import { PageHeader } from '../components/common/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Spinner } from '../components/ui/Spinner';
+import { barangayService } from '../services/barangay-service';
+import { ApiError } from '../utils/api-client';
 
 const barangaySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   code: z.string().min(1, 'Code is required'),
   municipality: z.string().min(1, 'Municipality is required'),
   province: z.string().min(1, 'Province is required'),
-  population: z.number().int().positive().optional().or(z.literal(''))
-})
+  population: z.coerce.number().int().positive().optional().or(z.literal('')),
+});
 
-type BarangayFormData = z.infer<typeof barangaySchema>
+type BarangayFormData = z.infer<typeof barangaySchema>;
 
 export default function BarangayForm() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(Boolean(id));
+  const [submitting, setSubmitting] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue
+    reset,
   } = useForm<BarangayFormData>({
-    resolver: zodResolver(barangaySchema)
-  })
+    resolver: zodResolver(barangaySchema),
+    defaultValues: { municipality: 'Lopez', province: 'Quezon' },
+  });
 
   useEffect(() => {
-    if (id) {
-      fetchBarangay()
-    }
-  }, [id])
-
-  const fetchBarangay = async () => {
-    try {
-      const response = await api.get(`/barangays/${id}`)
-      const barangayData = response.data.barangay
-      setValue('name', barangayData.name)
-      setValue('code', barangayData.code)
-      setValue('municipality', barangayData.municipality)
-      setValue('province', barangayData.province)
-      setValue('population', barangayData.population || '')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load barangay')
-      navigate('/barangays')
-    }
-  }
+    if (!id) return;
+    barangayService
+      .getById(id)
+      .then((res) => {
+        const b = res.data.barangay;
+        reset({
+          name: b.name,
+          code: b.code,
+          municipality: b.municipality,
+          province: b.province,
+          population: b.population ?? '',
+        });
+      })
+      .catch((err) => {
+        toast.error(err instanceof ApiError ? err.message : 'Failed to load barangay');
+        navigate('/barangays');
+      })
+      .finally(() => setLoading(false));
+  }, [id, navigate, reset]);
 
   const onSubmit = async (data: BarangayFormData) => {
-    setLoading(true)
+    setSubmitting(true);
     try {
       const payload = {
         ...data,
-        population: data.population === '' ? undefined : data.population
-      }
-
+        population: data.population === '' ? undefined : Number(data.population),
+      };
       if (id) {
-        await api.put(`/barangays/${id}`, payload)
-        toast.success('Barangay updated successfully')
+        await barangayService.update(id, payload);
+        toast.success('Barangay updated');
       } else {
-        await api.post('/barangays', payload)
-        toast.success('Barangay created successfully')
+        await barangayService.create(payload);
+        toast.success('Barangay created');
       }
-      navigate('/barangays')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to save barangay')
+      navigate('/barangays');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save barangay');
     } finally {
-      setLoading(false)
+      setSubmitting(false);
     }
+  };
+
+  if (loading) {
+    return <Spinner label="Loading form..." />;
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">
-        {id ? 'Edit Barangay' : 'New Barangay'}
-      </h1>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <PageHeader title={id ? 'Edit Barangay' : 'New Barangay'} />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Barangay Name *
-          </label>
-          <input
-            type="text"
-            {...register('name')}
-            className="input"
-            placeholder="e.g., Barangay Poblacion"
-          />
-          {errors.name && (
-            <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>
-          )}
-        </div>
+      <Card>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <Input label="Barangay Name *" {...register('name')} error={errors.name?.message} placeholder="e.g. Magsaysay (Poblacion)" />
+          <Input label="Barangay Code *" {...register('code')} error={errors.code?.message} placeholder="e.g. LPZ-MGS" />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Barangay Code *
-          </label>
-          <input
-            type="text"
-            {...register('code')}
-            className="input"
-            placeholder="e.g., BRG-001"
-          />
-          {errors.code && (
-            <p className="text-red-600 text-sm mt-1">{errors.code.message}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Municipality *
-            </label>
-            <input
-              type="text"
-              {...register('municipality')}
-              className="input"
-              placeholder="e.g., Sample Municipality"
-            />
-            {errors.municipality && (
-              <p className="text-red-600 text-sm mt-1">{errors.municipality.message}</p>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="Municipality *" {...register('municipality')} error={errors.municipality?.message} />
+            <Input label="Province *" {...register('province')} error={errors.province?.message} />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Province *
-            </label>
-            <input
-              type="text"
-              {...register('province')}
-              className="input"
-              placeholder="e.g., Sample Province"
-            />
-            {errors.province && (
-              <p className="text-red-600 text-sm mt-1">{errors.province.message}</p>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Population (optional)
-          </label>
-          <input
+          <Input
+            label="Population (optional)"
             type="number"
-            {...register('population', { valueAsNumber: true })}
-            className="input"
-            placeholder="e.g., 5000"
-            min="1"
+            min={1}
+            {...register('population')}
+            error={errors.population?.message}
+            placeholder="e.g. 5000"
           />
-          {errors.population && (
-            <p className="text-red-600 text-sm mt-1">{errors.population.message}</p>
-          )}
-        </div>
 
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary"
-          >
-            {loading ? 'Saving...' : id ? 'Update' : 'Create'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/barangays')}
-            className="btn btn-secondary"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+          <div className="flex gap-3">
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : id ? 'Update' : 'Create'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/barangays')}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Card>
     </div>
-  )
+  );
 }

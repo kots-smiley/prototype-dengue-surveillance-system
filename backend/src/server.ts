@@ -1,115 +1,65 @@
-// Load environment variables FIRST before any other imports
-import dotenv from 'dotenv';
-import * as path from 'path';
-import { validateEnv } from './utils/env';
-
-// Load .env from the backend root directory
-const envPath = path.resolve(process.cwd(), '.env');
-dotenv.config({ path: envPath, override: true });
-
-// Validate environment variables
-try {
-  validateEnv();
-} catch (error: any) {
-  console.error(error.message);
-  process.exit(1);
-}
-
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
-import { errorHandler } from './middleware/errorHandler';
-import { auditLogger } from './middleware/auditLogger';
+import helmet from 'helmet';
+import { getEnv } from './configuration/env';
+import routes from './routes';
+import { requestLogger } from './middleware/logging.middleware';
+import { auditLogger } from './middleware/audit.middleware';
+import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 
-// Routes
-import authRoutes from './routes/auth';
-import userRoutes from './routes/users';
-import barangayRoutes from './routes/barangays';
-import caseRoutes from './routes/cases';
-import reportRoutes from './routes/reports';
-import alertRoutes from './routes/alerts';
-import dashboardRoutes from './routes/dashboard';
-import exportRoutes from './routes/exports';
-import publicRoutes from './routes/public';
+/**
+ * Build and configure the Express application (without starting it).
+ * Keeping this separate from index.ts makes the app testable.
+ */
+export function createServer(): Application {
+  const app = express();
+  const { FRONTEND_URL, FRONTEND_URLS, NODE_ENV } = getEnv();
 
-import { getEnv } from './utils/env';
+  // --- CORS -----------------------------------------------------------------
+  const defaultDevOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ];
+  const extraOrigins = (FRONTEND_URLS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allowedOrigins = Array.from(
+    new Set([...(FRONTEND_URL ? [FRONTEND_URL] : []), ...extraOrigins, ...defaultDevOrigins])
+  );
 
-const app = express();
-const { PORT, FRONTEND_URL, FRONTEND_URLS, NODE_ENV } = getEnv();
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || NODE_ENV === 'development') {
+          return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+  );
 
-// Middleware - CORS Configuration
-const defaultDevOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000'
-];
+  // --- Security & parsing ---------------------------------------------------
+  app.use(helmet());
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use(requestLogger);
+  app.use(auditLogger);
 
-const extraOrigins = (FRONTEND_URLS || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
+  // --- Routes ---------------------------------------------------------------
+  app.use('/api', routes);
 
-const allowedOrigins = Array.from(new Set([
-  ...(FRONTEND_URL ? [FRONTEND_URL] : []),
-  ...extraOrigins,
-  ...defaultDevOrigins
-]));
+  // --- Error handling -------------------------------------------------------
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(auditLogger);
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/barangays', barangayRoutes);
-app.use('/api/cases', caseRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/alerts', alertRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/exports', exportRoutes);
-app.use('/api/public', publicRoutes);
-
-// Backwards-compatible route aliases (in case a client is missing the /api prefix)
-app.use('/auth', authRoutes);
-app.use('/users', userRoutes);
-app.use('/barangays', barangayRoutes);
-app.use('/cases', caseRoutes);
-app.use('/reports', reportRoutes);
-app.use('/alerts', alertRoutes);
-app.use('/dashboard', dashboardRoutes);
-app.use('/exports', exportRoutes);
-app.use('/public', publicRoutes);
-
-// Error handling
-app.use(errorHandler);
-
-const serverPort = Number(PORT || process.env.PORT || 5000);
-app.listen(serverPort, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${serverPort}`);
-  console.log(`📊 Environment: ${NODE_ENV}`);
-  console.log(`🌐 CORS enabled for: ${allowedOrigins.join(', ')}`);
-});
-
-
+  return app;
+}

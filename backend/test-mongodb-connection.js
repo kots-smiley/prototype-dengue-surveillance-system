@@ -15,7 +15,6 @@ async function testConnection() {
     // Test a simple query
     const userCount = await prisma.user.count();
     console.log(`✅ Database is accessible. Current user count: ${userCount}`);
-    
     await prisma.$disconnect();
     console.log('✅ Connection closed successfully');
     process.exit(0);

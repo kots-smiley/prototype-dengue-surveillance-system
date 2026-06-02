@@ -1,163 +1,134 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
-import toast from 'react-hot-toast'
-import { api } from '../services/api'
-import { User } from '../types'
-import { ConfirmDialog } from '../components/ConfirmDialog'
+import { useState, ReactNode } from 'react';
+import { Link } from 'react-router';
+import toast from 'react-hot-toast';
+import { PageHeader } from '../components/common/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { Spinner } from '../components/ui/Spinner';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/Modal';
+import { useApiResource } from '../hooks/useApiResource';
+import { userService } from '../services/user-service';
+import { humanize } from '../utils/formatters';
 
 export default function Users() {
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; userId: string | null; userName: string }>({
-    isOpen: false,
-    userId: null,
-    userName: ''
-  })
-
-  useEffect(() => {
-    fetchUsers()
-  }, [])
-
-  const fetchUsers = async () => {
-    try {
-      const response = await api.get('/users')
-      setUsers(response.data.users)
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load users')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [target, setTarget] = useState<{ id: string; name: string } | null>(null);
+  const { data, loading, refetch } = useApiResource(() => userService.list(), [], {
+    errorMessage: 'Failed to load users',
+  });
 
   const handleDelete = async () => {
-    if (!deleteDialog.userId) return
-    
+    if (!target) return;
     try {
-      await api.delete(`/users/${deleteDialog.userId}`)
-      toast.success('User deactivated successfully')
-      fetchUsers()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to delete user')
+      await userService.remove(target.id);
+      toast.success('User deactivated');
+      refetch();
+    } catch {
+      toast.error('Failed to deactivate user');
     }
-  }
+  };
 
-  if (loading) {
-    return <div className="text-center py-8">Loading users...</div>
-  }
+  const users = data?.data.users ?? [];
+
+  const message: ReactNode = target ? (
+    <div>
+      <p>
+        Deactivate <strong>{target.name}</strong>?
+      </p>
+      <p className="mt-2 text-sm text-gray-600">
+        The account will be disabled but its data is preserved.
+      </p>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-      <h1 className="text-3xl font-bold text-gray-900">Users</h1>
-        <Link to="/users/new" className="btn btn-primary">
-          Add New User
-        </Link>
-      </div>
-
-      <div className="card overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Name
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Email
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Role
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Barangay
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {users.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-12 text-center">
-                  <div>
-                    <div className="text-6xl mb-4">👥</div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Users Found</h3>
-                    <p className="text-gray-500 mb-4">Get started by creating your first user.</p>
-                    <Link to="/users/new" className="btn btn-primary">
-                      Add New User
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {user.firstName} {user.lastName}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {user.email}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {user.role.replace('_', ' ')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {user.barangay?.name || 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={user.isActive ? 'badge badge-success' : 'badge badge-danger'}>
-                    {user.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <div className="flex gap-3">
-                    <Link
-                      to={`/users/${user.id}/edit`}
-                      className="text-primary-600 hover:text-primary-800"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => setDeleteDialog({ 
-                        isOpen: true, 
-                        userId: user.id,
-                        userName: `${user.firstName} ${user.lastName}`
-                      })}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <ConfirmDialog
-        isOpen={deleteDialog.isOpen}
-        onClose={() => setDeleteDialog({ isOpen: false, userId: null, userName: '' })}
-        onConfirm={handleDelete}
-        title="Delete User"
-        message={
-          <div>
-            <p>Are you sure you want to deactivate <strong>{deleteDialog.userName}</strong>?</p>
-            <p className="mt-2 text-sm text-gray-600">
-              This will deactivate the user account. They will no longer be able to login, but their data will be preserved.
-            </p>
-          </div>
+      <PageHeader
+        title="Users"
+        subtitle="Manage RHU staff, health workers, and encoders"
+        actions={
+          <Link to="/users/new">
+            <Button>Add User</Button>
+          </Link>
         }
+      />
+
+      <Card title="User accounts" subtitle="Role, status, and barangay are grouped for quick scanning.">
+        {loading ? (
+          <Spinner label="Loading users..." />
+        ) : users.length === 0 ? (
+          <EmptyState
+            icon="👥"
+            title="No users yet"
+            description="Create the first user account."
+            action={
+              <Link to="/users/new">
+                <Button>Add User</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="table-shell">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="table-head">
+                <tr>
+                  <th className="table-head-cell">Name</th>
+                  <th className="table-head-cell">Email</th>
+                  <th className="table-head-cell">Role</th>
+                  <th className="table-head-cell">Barangay</th>
+                  <th className="table-head-cell">Status</th>
+                  <th className="table-head-cell">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white">
+                {users.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50">
+                    <td className="table-cell whitespace-nowrap text-slate-900">
+                      {u.firstName} {u.lastName}
+                    </td>
+                    <td className="table-cell whitespace-nowrap">{u.email}</td>
+                    <td className="table-cell whitespace-nowrap">
+                      {humanize(u.role)}
+                    </td>
+                    <td className="table-cell whitespace-nowrap">
+                      {u.barangay?.name ?? 'N/A'}
+                    </td>
+                    <td className="table-cell whitespace-nowrap">
+                      <Badge tone={u.isActive ? 'success' : 'danger'}>
+                        {u.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td className="table-cell whitespace-nowrap">
+                      <div className="flex gap-3">
+                        <Link to={`/users/${u.id}/edit`} className="text-primary-600 hover:text-primary-800">
+                          Edit
+                        </Link>
+                        <button
+                          onClick={() => setTarget({ id: u.id, name: `${u.firstName} ${u.lastName}` })}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Deactivate
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <ConfirmModal
+        isOpen={target !== null}
+        title="Deactivate User"
+        message={message}
         confirmText="Deactivate"
-        cancelText="Cancel"
         variant="danger"
+        onConfirm={handleDelete}
+        onClose={() => setTarget(null)}
       />
     </div>
-  )
+  );
 }
-
-

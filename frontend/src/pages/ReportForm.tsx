@@ -1,218 +1,201 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import toast from 'react-hot-toast'
-import { api } from '../services/api'
-import { Barangay } from '../types'
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import toast from 'react-hot-toast';
+import { PageHeader } from '../components/common/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Select } from '../components/ui/Select';
+import { Input } from '../components/ui/Input';
+import { Textarea } from '../components/ui/Textarea';
+import { Checkbox } from '../components/ui/Checkbox';
+import { Spinner } from '../components/ui/Spinner';
+import { riskReportService } from '../services/risk-report-service';
+import { barangayService } from '../services/barangay-service';
+import { Barangay, RiskReport } from '../types';
+import { ApiError } from '../utils/api-client';
+import { toDateInputValue } from '../utils/formatters';
+import { RISK_FACTORS_BY_CATEGORY } from '../configuration/options';
 
-const reportSchema = z.object({
-  barangayId: z.string().min(1, 'Barangay is required'),
-  dateReported: z.string().optional(),
-  stagnantWater: z.boolean().default(false),
-  poorWasteDisposal: z.boolean().default(false),
-  cloggedDrainage: z.boolean().default(false),
-  housingCongestion: z.boolean().default(false),
-  photoUrl: z.string().url().optional().or(z.literal('')),
-  notes: z.string().optional()
-})
+const CATEGORY_OPTIONS = [
+  { value: 'VECTOR_BORNE', label: 'Vector-borne (e.g. dengue, malaria)' },
+  { value: 'WATER_BORNE', label: 'Water-borne (e.g. typhoid, leptospirosis)' },
+  { value: 'AIRBORNE', label: 'Airborne (e.g. influenza, measles, TB)' },
+];
 
-type ReportFormData = z.infer<typeof reportSchema>
+const ALL_FACTOR_KEYS = Object.values(RISK_FACTORS_BY_CATEGORY)
+  .flat()
+  .map((f) => f.key);
 
-export default function ReportForm() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [barangays, setBarangays] = useState<Barangay[]>([])
-  const [loading, setLoading] = useState(false)
+type FactorState = Record<string, boolean>;
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue
-  } = useForm<ReportFormData>({
-    resolver: zodResolver(reportSchema),
-    defaultValues: {
-      stagnantWater: false,
-      poorWasteDisposal: false,
-      cloggedDrainage: false,
-      housingCongestion: false
-    }
-  })
-
-  useEffect(() => {
-    fetchBarangays()
-    if (id) {
-      fetchReport()
-    }
-  }, [id])
-
-  const fetchBarangays = async () => {
-    try {
-      const response = await api.get('/barangays')
-      setBarangays(response.data.barangays)
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load barangays')
-    }
-  }
-
-  const fetchReport = async () => {
-    try {
-      const response = await api.get(`/reports/${id}`)
-      const reportData = response.data.report
-      setValue('barangayId', reportData.barangayId)
-      setValue('dateReported', reportData.dateReported.split('T')[0])
-      setValue('stagnantWater', reportData.stagnantWater)
-      setValue('poorWasteDisposal', reportData.poorWasteDisposal)
-      setValue('cloggedDrainage', reportData.cloggedDrainage)
-      setValue('housingCongestion', reportData.housingCongestion)
-      setValue('photoUrl', reportData.photoUrl || '')
-      setValue('notes', reportData.notes || '')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load report')
-      navigate('/reports')
-    }
-  }
-
-  const onSubmit = async (data: ReportFormData) => {
-    setLoading(true)
-    try {
-      if (id) {
-        await api.put(`/reports/${id}`, data)
-        toast.success('Report updated successfully')
-      } else {
-        await api.post('/reports', data)
-        toast.success('Report created successfully')
-      }
-      navigate('/reports')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to save report')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">
-        {id ? 'Edit Report' : 'New Environmental Report'}
-      </h1>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Barangay *
-          </label>
-          <select {...register('barangayId')} className="input">
-            <option value="">Select barangay</option>
-            {barangays.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-          {errors.barangayId && (
-            <p className="text-red-600 text-sm mt-1">{errors.barangayId.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Date Reported
-          </label>
-          <input
-            type="date"
-            {...register('dateReported')}
-            className="input"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Environmental Risk Factors
-          </label>
-          <div className="space-y-2">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('stagnantWater')}
-                className="mr-2"
-              />
-              <span>Stagnant Water</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('poorWasteDisposal')}
-                className="mr-2"
-              />
-              <span>Poor Waste Disposal</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('cloggedDrainage')}
-                className="mr-2"
-              />
-              <span>Clogged Drainage</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('housingCongestion')}
-                className="mr-2"
-              />
-              <span>Housing Congestion</span>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Photo URL (optional)
-          </label>
-          <input
-            type="url"
-            {...register('photoUrl')}
-            className="input"
-            placeholder="https://example.com/photo.jpg"
-          />
-          {errors.photoUrl && (
-            <p className="text-red-600 text-sm mt-1">{errors.photoUrl.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Notes
-          </label>
-          <textarea
-            {...register('notes')}
-            className="input"
-            rows={3}
-          />
-        </div>
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary"
-          >
-            {loading ? 'Saving...' : id ? 'Update' : 'Create'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/reports')}
-            className="btn btn-secondary"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
-  )
+function emptyFactors(): FactorState {
+  return ALL_FACTOR_KEYS.reduce((acc, key) => ({ ...acc, [key]: false }), {} as FactorState);
 }
 
+export default function ReportForm() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
+  const [barangayId, setBarangayId] = useState('');
+  const [category, setCategory] = useState('VECTOR_BORNE');
+  const [dateReported, setDateReported] = useState('');
+  const [notes, setNotes] = useState('');
+  const [factors, setFactors] = useState<FactorState>(emptyFactors());
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const barangaysRes = await barangayService.list();
+        setBarangays(barangaysRes.data.barangays);
+
+        if (id) {
+          const reportRes = await riskReportService.getById(id);
+          const r = reportRes.data.report as RiskReport & Record<string, boolean>;
+          setBarangayId(r.barangayId);
+          setCategory(r.category);
+          setDateReported(toDateInputValue(r.dateReported));
+          setNotes(r.notes ?? '');
+          const loaded = emptyFactors();
+          ALL_FACTOR_KEYS.forEach((key) => {
+            loaded[key] = Boolean(r[key]);
+          });
+          setFactors(loaded);
+        }
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : 'Failed to load form data');
+        if (id) navigate('/reports');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id, navigate]);
+
+  const toggleFactor = (key: string) => {
+    setFactors((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!barangayId) {
+      toast.error('Please select a barangay');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // Only send the factor keys relevant to the chosen category.
+      const relevantKeys = (RISK_FACTORS_BY_CATEGORY[category] ?? []).map((f) => f.key);
+      const factorPayload = relevantKeys.reduce(
+        (acc, key) => ({ ...acc, [key]: factors[key] }),
+        {} as FactorState
+      );
+
+      const payload = {
+        barangayId,
+        category,
+        dateReported: dateReported || undefined,
+        notes: notes.trim() || undefined,
+        ...factorPayload,
+      };
+
+      if (id) {
+        await riskReportService.update(id, payload);
+        toast.success('Report updated');
+      } else {
+        await riskReportService.create(payload);
+        toast.success('Report created');
+      }
+      navigate('/reports');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save report');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <Spinner label="Loading form..." />;
+  }
+
+  const categoryFactors = RISK_FACTORS_BY_CATEGORY[category] ?? [];
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <PageHeader
+        title={id ? 'Edit Risk Report' : 'New Risk Report'}
+        subtitle="Follow the guided sections to reduce entry errors."
+      />
+
+      <Card title="1) Location and timeline">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select
+              label="Barangay *"
+              value={barangayId}
+              onChange={(e) => setBarangayId(e.target.value)}
+            >
+              <option value="">Select barangay</option>
+              {barangays.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+
+            <Input
+              label="Date Reported"
+              type="date"
+              value={dateReported}
+              onChange={(e) => setDateReported(e.target.value)}
+            />
+          </div>
+
+          <Select label="Transmission Category *" value={category} onChange={(e) => setCategory(e.target.value)}>
+            {CATEGORY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+
+          <Card title="2) Observed risk factors" className="border border-slate-100 shadow-none">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Observed Risk Factors
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {categoryFactors.map((f) => (
+                <Checkbox
+                  key={f.key}
+                  label={f.label}
+                  checked={factors[f.key] ?? false}
+                  onChange={() => toggleFactor(f.key)}
+                />
+              ))}
+            </div>
+          </Card>
+
+          <Card title="3) Optional notes" className="border border-slate-100 shadow-none">
+            <Textarea
+              label="Notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Card>
+
+          <div className="flex gap-3">
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : id ? 'Update' : 'Create'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/reports')}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+}

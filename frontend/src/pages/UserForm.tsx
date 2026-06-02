@@ -1,11 +1,21 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import toast from 'react-hot-toast'
-import { api } from '../services/api'
-import { Barangay, UserRole } from '../types'
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import toast from 'react-hot-toast';
+import { PageHeader } from '../components/common/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Checkbox } from '../components/ui/Checkbox';
+import { Spinner } from '../components/ui/Spinner';
+import { userService } from '../services/user-service';
+import { barangayService } from '../services/barangay-service';
+import { Barangay } from '../types';
+import { ApiError } from '../utils/api-client';
+import { USER_ROLE_OPTIONS } from '../configuration/options';
 
 const userSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -14,246 +24,161 @@ const userSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   role: z.enum(['ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT']),
   barangayId: z.string().optional(),
-  isActive: z.boolean().default(true)
-})
+  isActive: z.boolean(),
+});
 
-type UserFormData = z.infer<typeof userSchema>
+type UserFormData = z.infer<typeof userSchema>;
 
 export default function UserForm() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [barangays, setBarangays] = useState<Barangay[]>([])
-  const [loading, setLoading] = useState(false)
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
-    watch
+    reset,
+    watch,
   } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
-    defaultValues: {
-      isActive: true
-    }
-  })
+    defaultValues: { isActive: true, role: 'BHW' },
+  });
 
-  const selectedRole = watch('role')
+  const selectedRole = watch('role');
+  const selectedBarangay = watch('barangayId');
 
   useEffect(() => {
-    fetchBarangays()
-    if (id) {
-      fetchUser()
-    }
-  }, [id])
+    const load = async () => {
+      try {
+        const barangaysRes = await barangayService.list();
+        setBarangays(barangaysRes.data.barangays);
 
-  const fetchBarangays = async () => {
-    try {
-      const response = await api.get('/barangays')
-      setBarangays(response.data.barangays)
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load barangays')
-    }
-  }
-
-  const fetchUser = async () => {
-    try {
-      const response = await api.get(`/users/${id}`)
-      const userData = response.data.user
-      setValue('email', userData.email)
-      setValue('firstName', userData.firstName)
-      setValue('lastName', userData.lastName)
-      setValue('role', userData.role)
-      setValue('barangayId', userData.barangayId || '')
-      setValue('isActive', userData.isActive)
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load user')
-      navigate('/users')
-    }
-  }
+        if (id) {
+          const userRes = await userService.getById(id);
+          const u = userRes.data.user;
+          reset({
+            email: u.email,
+            password: '',
+            firstName: u.firstName,
+            lastName: u.lastName,
+            role: u.role,
+            barangayId: u.barangayId ?? '',
+            isActive: u.isActive,
+          });
+        }
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : 'Failed to load form data');
+        if (id) navigate('/users');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id, navigate, reset]);
 
   const onSubmit = async (data: UserFormData) => {
-    setLoading(true)
+    if (!id && !data.password) {
+      toast.error('Password is required for new users');
+      return;
+    }
+    setSubmitting(true);
     try {
-      const payload: any = {
-        ...data,
-        barangayId: data.barangayId || undefined
-      }
-
-      // Only include password if it's a new user or if password is provided
-      if (!id) {
-        if (!data.password || data.password === '') {
-          toast.error('Password is required for new users')
-          setLoading(false)
-          return
-        }
-        payload.password = data.password
-      } else if (data.password && data.password !== '') {
-        payload.password = data.password
-      } else {
-        // Remove password from payload if updating and password is empty
-        delete payload.password
-      }
+      const base = {
+        email: data.email.trim(),
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        role: data.role,
+        barangayId: data.barangayId || undefined,
+        isActive: data.isActive,
+      };
 
       if (id) {
-        await api.put(`/users/${id}`, payload)
-        toast.success('User updated successfully')
+        await userService.update(id, base);
+        toast.success('User updated');
       } else {
-        await api.post('/users', payload)
-        toast.success('User created successfully')
+        await userService.create({ ...base, password: data.password as string });
+        toast.success('User created');
       }
-      navigate('/users')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to save user')
+      navigate('/users');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save user');
     } finally {
-      setLoading(false)
+      setSubmitting(false);
     }
+  };
+
+  if (loading) {
+    return <Spinner label="Loading form..." />;
   }
 
-  const roles: { value: UserRole; label: string }[] = [
-    { value: 'ADMIN', label: 'Admin' },
-    { value: 'BHW', label: 'Barangay Health Worker' },
-    { value: 'HOSPITAL_ENCODER', label: 'Hospital Encoder' },
-    { value: 'RESIDENT', label: 'Resident' }
-  ]
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">
-        {id ? 'Edit User' : 'New User'}
-      </h1>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <PageHeader
+        title={id ? 'Edit User' : 'New User'}
+        subtitle="Complete identity details first, then account access settings."
+      />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              First Name *
-            </label>
-            <input
-              type="text"
-              {...register('firstName')}
-              className="input"
-              placeholder="John"
-            />
-            {errors.firstName && (
-              <p className="text-red-600 text-sm mt-1">{errors.firstName.message}</p>
-            )}
+      <Card title="1) Identity">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="First Name *" {...register('firstName')} error={errors.firstName?.message} />
+            <Input label="Last Name *" {...register('lastName')} error={errors.lastName?.message} />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Last Name *
-            </label>
-            <input
-              type="text"
-              {...register('lastName')}
-              className="input"
-              placeholder="Doe"
+          <Input label="Email *" type="email" {...register('email')} error={errors.email?.message} />
+
+          <Card title="2) Access credentials" className="border border-slate-100 shadow-none">
+            <Input
+              label={id ? 'Password (leave blank to keep current)' : 'Password *'}
+              type="password"
+              {...register('password')}
+              error={errors.password?.message}
+              placeholder={id ? 'Leave blank to keep current password' : 'Enter password'}
             />
-            {errors.lastName && (
-              <p className="text-red-600 text-sm mt-1">{errors.lastName.message}</p>
-            )}
-          </div>
-        </div>
+          </Card>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email *
-          </label>
-          <input
-            type="email"
-            {...register('email')}
-            className="input"
-            placeholder="user@example.com"
-          />
-          {errors.email && (
-            <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password {id ? '(leave blank to keep current)' : '*'}
-          </label>
-          <input
-            type="password"
-            {...register('password')}
-            className="input"
-            placeholder={id ? 'Leave blank to keep current password' : 'Enter password'}
-          />
-          {errors.password && (
-            <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role *
-            </label>
-            <select {...register('role')} className="input">
-              {roles.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
+          <Card title="3) Role and assignment" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select label="Role *" {...register('role')} error={errors.role?.message}>
+              {USER_ROLE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
                 </option>
               ))}
-            </select>
-            {errors.role && (
-              <p className="text-red-600 text-sm mt-1">{errors.role.message}</p>
-            )}
-          </div>
+            </Select>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Barangay {selectedRole === 'BHW' && '*'}
-            </label>
-            <select {...register('barangayId')} className="input">
+            <Select label={`Barangay${selectedRole === 'BHW' ? ' *' : ''}`} {...register('barangayId')}>
               <option value="">Select barangay</option>
-              {barangays.map((barangay) => (
-                <option key={barangay.id} value={barangay.id}>
-                  {barangay.name}
+              {barangays.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
                 </option>
               ))}
-            </select>
-            {errors.barangayId && (
-              <p className="text-red-600 text-sm mt-1">{errors.barangayId.message}</p>
+            </Select>
+            </div>
+
+            {selectedRole === 'BHW' && !selectedBarangay && (
+              <p className="text-sm text-yellow-600">BHW users should be assigned to a barangay.</p>
             )}
-            {selectedRole === 'BHW' && !watch('barangayId') && (
-              <p className="text-yellow-600 text-sm mt-1">
-                BHW users should be assigned to a barangay
-              </p>
-            )}
+          </Card>
+
+          <Card title="4) Account state" className="border border-slate-100 shadow-none">
+            <Checkbox label="Active" {...register('isActive')} />
+          </Card>
+
+          <div className="flex gap-3">
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : id ? 'Update' : 'Create'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/users')}>
+              Cancel
+            </Button>
           </div>
-        </div>
-
-        <div>
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              {...register('isActive')}
-              className="mr-2"
-            />
-            <span className="text-sm text-gray-700">Active</span>
-          </label>
-        </div>
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary"
-          >
-            {loading ? 'Saving...' : id ? 'Update' : 'Create'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/users')}
-            className="btn btn-secondary"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+        </form>
+      </Card>
     </div>
-  )
+  );
 }

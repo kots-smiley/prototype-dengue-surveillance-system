@@ -1,94 +1,117 @@
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
-import { api } from '../services/api'
-import { Alert } from '../types'
-import { format } from 'date-fns'
+import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { PageHeader } from '../components/common/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Spinner } from '../components/ui/Spinner';
+import { EmptyState } from '../components/ui/EmptyState';
+import { useApiResource } from '../hooks/useApiResource';
+import { alertService } from '../services/alert-service';
+import { formatDate, humanize, riskLevelBadge } from '../utils/formatters';
+import { ALERT_STATUS_OPTIONS } from '../configuration/options';
+import { Select } from '../components/ui/Select';
 
 export default function Alerts() {
-  const [alerts, setAlerts] = useState<Alert[]>([])
-  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState('ACTIVE');
 
-  useEffect(() => {
-    fetchAlerts()
-  }, [])
+  const { data, loading, refreshing, refetch } = useApiResource(
+    () => alertService.list({ status: status || undefined, limit: 100 }),
+    [status],
+    { errorMessage: 'Failed to load alerts' }
+  );
 
-  const fetchAlerts = async () => {
+  const resolve = async (id: string) => {
     try {
-      const response = await api.get('/alerts?status=ACTIVE')
-      setAlerts(response.data.alerts)
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load alerts')
-    } finally {
-      setLoading(false)
+      await alertService.resolve(id);
+      toast.success('Alert resolved');
+      refetch();
+    } catch {
+      toast.error('Failed to resolve alert');
     }
-  }
+  };
 
-  const resolveAlert = async (id: string) => {
+  const dismiss = async (id: string) => {
     try {
-      await api.put(`/alerts/${id}/resolve`)
-      toast.success('Alert resolved successfully')
-      fetchAlerts()
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to resolve alert')
+      await alertService.updateStatus(id, 'DISMISSED');
+      toast.success('Alert dismissed');
+      refetch();
+    } catch {
+      toast.error('Failed to dismiss alert');
     }
-  }
+  };
 
-  const getRiskBadge = (risk: string) => {
-    switch (risk) {
-      case 'HIGH':
-        return 'badge badge-danger'
-      case 'MEDIUM':
-        return 'badge badge-warning'
-      default:
-        return 'badge badge-info'
-    }
-  }
-
-  if (loading) {
-    return <div className="text-center py-8">Loading alerts...</div>
-  }
+  const alerts = data?.data.items ?? [];
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Early Warning Alerts</h1>
+      <PageHeader title="Early Warning Alerts" subtitle="Rule-based risk alerts by disease and barangay" />
 
-      {alerts.length === 0 ? (
-        <div className="card text-center py-12">
-          <div className="text-6xl mb-4">✅</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Active Alerts</h3>
-          <p className="text-gray-500">All systems are operating normally. No early warning alerts at this time.</p>
+      <Card title="Alert status filter" subtitle="Switch between active and resolved alerts.">
+        <div className="max-w-xs">
+          <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All</option>
+            {ALERT_STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
         </div>
+      </Card>
+
+      {loading ? (
+        <Spinner label="Loading alerts..." />
+      ) : alerts.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon="✅"
+            title="No alerts"
+            description="No early-warning alerts match the selected status."
+          />
+        </Card>
       ) : (
         <div className="grid gap-4">
+          {refreshing && <p className="text-xs font-medium text-slate-500">Refreshing alerts...</p>}
           {alerts.map((alert) => (
-            <div key={alert.id} className="card border-l-4 border-red-500">
-              <div className="flex justify-between items-start">
+            <Card
+              key={alert.id}
+              className={`border-l-4 ${
+                alert.riskLevel === 'HIGH'
+                  ? 'border-red-500'
+                  : alert.riskLevel === 'MEDIUM'
+                    ? 'border-yellow-500'
+                    : 'border-blue-500'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
                     <h3 className="text-lg font-semibold">{alert.title}</h3>
-                    <span className={getRiskBadge(alert.riskLevel)}>
-                      {alert.riskLevel}
-                    </span>
+                    <span className={riskLevelBadge(alert.riskLevel)}>{alert.riskLevel}</span>
+                    {alert.disease && <span className="badge badge-info">{alert.disease.name}</span>}
                   </div>
-                  <p className="text-gray-700 mb-2">{alert.message}</p>
-                  <div className="text-sm text-gray-500">
-                    <p>Barangay: {alert.barangay?.name || 'N/A'}</p>
-                    <p>Triggered: {format(new Date(alert.triggeredAt), 'MMM dd, yyyy HH:mm')}</p>
+                  <p className="mb-2 text-slate-700">{alert.message}</p>
+                  <div className="space-y-0.5 text-sm text-slate-500">
+                    <p>Barangay: {alert.barangay?.name ?? 'N/A'}</p>
+                    <p>Status: {humanize(alert.status)}</p>
+                    <p>Triggered: {formatDate(alert.triggeredAt)}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => resolveAlert(alert.id)}
-                  className="btn btn-secondary text-sm"
-                >
-                  Resolve
-                </button>
+                {alert.status === 'ACTIVE' && (
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => resolve(alert.id)}>
+                      Resolve
+                    </Button>
+                    <Button variant="secondary" onClick={() => dismiss(alert.id)}>
+                      Dismiss
+                    </Button>
+                  </div>
+                )}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }
-
-

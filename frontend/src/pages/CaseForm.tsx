@@ -1,184 +1,226 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import toast from 'react-hot-toast'
-import { api } from '../services/api'
-import { Barangay } from '../types'
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import toast from 'react-hot-toast';
+import { PageHeader } from '../components/common/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Select } from '../components/ui/Select';
+import { Input } from '../components/ui/Input';
+import { Textarea } from '../components/ui/Textarea';
+import { Spinner } from '../components/ui/Spinner';
+import { caseService } from '../services/case-service';
+import { diseaseService } from '../services/disease-service';
+import { barangayService } from '../services/barangay-service';
+import { Barangay, Disease } from '../types';
+import { ApiError } from '../utils/api-client';
+import { toDateInputValue } from '../utils/formatters';
+import {
+  CASE_STATUS_OPTIONS,
+  CASE_OUTCOME_OPTIONS,
+  CASE_SOURCE_OPTIONS,
+  SEX_OPTIONS,
+  AGE_GROUP_OPTIONS,
+} from '../configuration/options';
 
 const caseSchema = z.object({
+  diseaseId: z.string().min(1, 'Disease is required'),
   barangayId: z.string().min(1, 'Barangay is required'),
   dateReported: z.string().min(1, 'Date is required'),
-  status: z.enum(['SUSPECTED', 'CONFIRMED']),
+  onsetDate: z.string().optional(),
+  age: z.coerce.number().int().min(0).max(120),
+  ageGroup: z.string().min(1, 'Age group is required'),
+  sex: z.enum(['MALE', 'FEMALE']).optional().or(z.literal('')),
+  status: z.enum(['SUSPECTED', 'PROBABLE', 'CONFIRMED']),
+  outcome: z.enum(['ONGOING', 'RECOVERED', 'DIED']),
   source: z.enum(['PUBLIC_HOSPITAL', 'PRIVATE_HOSPITAL', 'RHU', 'BHW']),
-  notes: z.string().optional()
-})
+  notes: z.string().optional(),
+});
 
-type CaseFormData = z.infer<typeof caseSchema>
+type CaseFormData = z.infer<typeof caseSchema>;
 
 export default function CaseForm() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [barangays, setBarangays] = useState<Barangay[]>([])
-  const [loading, setLoading] = useState(false)
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue
+    reset,
   } = useForm<CaseFormData>({
-    resolver: zodResolver(caseSchema)
-  })
+    resolver: zodResolver(caseSchema),
+    defaultValues: { outcome: 'ONGOING', status: 'SUSPECTED' },
+  });
 
   useEffect(() => {
-    fetchBarangays()
-    if (id) {
-      fetchCase()
-    }
-  }, [id])
+    const load = async () => {
+      try {
+        const [diseasesRes, barangaysRes] = await Promise.all([
+          diseaseService.list({ isActive: 'true' }),
+          barangayService.list(),
+        ]);
+        setDiseases(diseasesRes.data.diseases);
+        setBarangays(barangaysRes.data.barangays);
 
-  const fetchBarangays = async () => {
-    try {
-      const response = await api.get('/barangays')
-      setBarangays(response.data.barangays)
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load barangays')
-    }
-  }
-
-  const fetchCase = async () => {
-    try {
-      const response = await api.get(`/cases/${id}`)
-      const caseData = response.data.case
-      setValue('barangayId', caseData.barangayId)
-      setValue('dateReported', caseData.dateReported.split('T')[0])
-      setValue('status', caseData.status)
-      setValue('source', caseData.source)
-      setValue('notes', caseData.notes || '')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load case')
-      navigate('/cases')
-    }
-  }
+        if (id) {
+          const caseRes = await caseService.getById(id);
+          const c = caseRes.data.case;
+          reset({
+            diseaseId: c.diseaseId,
+            barangayId: c.barangayId,
+            dateReported: toDateInputValue(c.dateReported),
+            onsetDate: toDateInputValue(c.onsetDate),
+            age: c.age,
+            ageGroup: c.ageGroup,
+            sex: (c.sex as 'MALE' | 'FEMALE') ?? '',
+            status: c.status,
+            outcome: c.outcome,
+            source: c.source,
+            notes: c.notes ?? '',
+          });
+        }
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : 'Failed to load form data');
+        if (id) navigate('/cases');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id, navigate, reset]);
 
   const onSubmit = async (data: CaseFormData) => {
-    setLoading(true)
+    setSubmitting(true);
     try {
+      const payload = {
+        ...data,
+        notes: data.notes?.trim() || undefined,
+        sex: data.sex || undefined,
+        onsetDate: data.onsetDate || undefined,
+      };
       if (id) {
-        await api.put(`/cases/${id}`, data)
-        toast.success('Case updated successfully')
+        await caseService.update(id, payload);
+        toast.success('Case updated');
       } else {
-        await api.post('/cases', data)
-        toast.success('Case created successfully')
+        await caseService.create(payload);
+        toast.success('Case created');
       }
-      navigate('/cases')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to save case')
+      navigate('/cases');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save case');
     } finally {
-      setLoading(false)
+      setSubmitting(false);
     }
+  };
+
+  if (loading) {
+    return <Spinner label="Loading form..." />;
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">
-        {id ? 'Edit Case' : 'New Dengue Case'}
-      </h1>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <PageHeader
+        title={id ? 'Edit Case' : 'New Case'}
+        subtitle="Complete required details first, then optional context."
+      />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Barangay *
-          </label>
-          <select {...register('barangayId')} className="input">
-            <option value="">Select barangay</option>
-            {barangays.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-          {errors.barangayId && (
-            <p className="text-red-600 text-sm mt-1">{errors.barangayId.message}</p>
-          )}
-        </div>
+      <Card title="1) Case identity">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select label="Disease *" {...register('diseaseId')} error={errors.diseaseId?.message}>
+              <option value="">Select disease</option>
+              {diseases.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </Select>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Date Reported *
-          </label>
-          <input
-            type="date"
-            {...register('dateReported')}
-            className="input"
-          />
-          {errors.dateReported && (
-            <p className="text-red-600 text-sm mt-1">{errors.dateReported.message}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status *
-            </label>
-            <select {...register('status')} className="input">
-              <option value="SUSPECTED">Suspected</option>
-              <option value="CONFIRMED">Confirmed</option>
-            </select>
-            {errors.status && (
-              <p className="text-red-600 text-sm mt-1">{errors.status.message}</p>
-            )}
+            <Select label="Barangay *" {...register('barangayId')} error={errors.barangayId?.message}>
+              <option value="">Select barangay</option>
+              {barangays.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Source *
-            </label>
-            <select {...register('source')} className="input">
-              <option value="PUBLIC_HOSPITAL">Public Hospital</option>
-              <option value="PRIVATE_HOSPITAL">Private Hospital</option>
-              <option value="RHU">RHU</option>
-              <option value="BHW">BHW</option>
-            </select>
-            {errors.source && (
-              <p className="text-red-600 text-sm mt-1">{errors.source.message}</p>
-            )}
+          <Card title="2) Timeline and demographic details" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="Date Reported *" type="date" {...register('dateReported')} error={errors.dateReported?.message} />
+            <Input label="Onset Date" type="date" {...register('onsetDate')} error={errors.onsetDate?.message} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input label="Age *" type="number" min={0} max={120} {...register('age')} error={errors.age?.message} />
+              <Select label="Age Group *" {...register('ageGroup')} error={errors.ageGroup?.message}>
+                <option value="">Select</option>
+                {AGE_GROUP_OPTIONS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </Select>
+              <Select label="Sex" {...register('sex')} error={errors.sex?.message}>
+                <option value="">Not specified</option>
+                {SEX_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </Card>
+
+          <Card title="3) Clinical status and source" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Select label="Status *" {...register('status')} error={errors.status?.message}>
+                {CASE_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+              <Select label="Outcome *" {...register('outcome')} error={errors.outcome?.message}>
+                {CASE_OUTCOME_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+              <Select label="Source *" {...register('source')} error={errors.source?.message}>
+                <option value="">Select source</option>
+                {CASE_SOURCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </Card>
+
+          <Card title="4) Optional notes" className="border border-slate-100 shadow-none">
+            <Textarea label="Notes" rows={3} {...register('notes')} />
+          </Card>
+
+          <div className="flex gap-3">
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : id ? 'Update' : 'Create'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/cases')}>
+              Cancel
+            </Button>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Notes
-          </label>
-          <textarea
-            {...register('notes')}
-            className="input"
-            rows={3}
-          />
-        </div>
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary"
-          >
-            {loading ? 'Saving...' : id ? 'Update' : 'Create'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/cases')}
-            className="btn btn-secondary"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+        </form>
+      </Card>
     </div>
-  )
+  );
 }
-
-

@@ -1,146 +1,106 @@
-import { useState } from 'react'
-import toast from 'react-hot-toast'
-import { api } from '../services/api'
+import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { PageHeader } from '../components/common/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { DiseaseFilter } from '../components/domain/DiseaseFilter';
+import { useApiResource } from '../hooks/useApiResource';
+import { exportService } from '../services/export-service';
+import { diseaseService } from '../services/disease-service';
+import { ApiError } from '../utils/api-client';
 
 export default function Exports() {
-  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false);
+  const [diseaseId, setDiseaseId] = useState('');
+  const { data: diseasesData } = useApiResource(() => diseaseService.list({ isActive: 'true' }), []);
+  const diseases = diseasesData?.data.diseases ?? [];
 
-  const downloadBlob = (data: BlobPart, filename: string, mime?: string) => {
-    const blob = new Blob([data], mime ? { type: mime } : undefined)
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
-  }
-
-  const exportCases = async (format: 'csv' | 'xlsx') => {
-    setLoading(true)
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setBusy(true);
     try {
-      const response = await api.get(`/exports/cases?format=${format}`, {
-        responseType: 'blob'
-      })
-
-      downloadBlob(
-        response.data,
-        `dengue-cases-${Date.now()}.${format}`,
-        format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
-      toast.success('Cases exported successfully')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to export cases')
+      await fn();
+      toast.success(`${label} exported`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : `Failed to export ${label.toLowerCase()}`);
     } finally {
-      setLoading(false)
+      setBusy(false);
     }
-  }
-
-  const exportReports = async (format: 'csv' | 'xlsx') => {
-    setLoading(true)
-    try {
-      const response = await api.get(`/exports/reports?format=${format}`, {
-        responseType: 'blob'
-      })
-
-      downloadBlob(
-        response.data,
-        `environmental-reports-${Date.now()}.${format}`,
-        format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
-      toast.success('Reports exported successfully')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to export reports')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const exportSummary = async (format: 'csv' | 'xlsx') => {
-    setLoading(true)
-    try {
-      const response = await api.get(`/exports/summary?format=${format}`, { responseType: 'blob' })
-      downloadBlob(
-        response.data,
-        `dengue-summary-${Date.now()}.${format}`,
-        format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
-      toast.success('Summary exported successfully')
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to export summary')
-    } finally {
-      setLoading(false)
-    }
-  }
+  };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Data Exports</h1>
+      <PageHeader title="Data Exports" subtitle="Download surveillance data as CSV or Excel" />
+
+      <Card title="Export scope" subtitle="Limit datasets by disease when needed.">
+        <div className="max-w-xs">
+          <DiseaseFilter diseases={diseases} value={diseaseId} onChange={setDiseaseId} />
+          <p className="mt-1 text-xs text-slate-500">
+            Applies to Cases and Summary exports.
+          </p>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Export Cases</h2>
+        <Card title="Cases" subtitle="Detailed line-level records.">
           <div className="space-y-2">
-            <button
-              onClick={() => exportCases('csv')}
-              disabled={loading}
-              className="w-full btn btn-primary"
+            <Button
+              className="w-full"
+              disabled={busy}
+              onClick={() => run('Cases', () => exportService.cases({ format: 'csv', diseaseId: diseaseId || undefined }))}
             >
               Export as CSV
-            </button>
-            <button
-              onClick={() => exportCases('xlsx')}
-              disabled={loading}
-              className="w-full btn btn-secondary"
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
+              disabled={busy}
+              onClick={() => run('Cases', () => exportService.cases({ format: 'xlsx', diseaseId: diseaseId || undefined }))}
             >
               Export as Excel
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
 
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Export Reports</h2>
+        <Card title="Risk reports" subtitle="Environmental and transmission factors.">
           <div className="space-y-2">
-            <button
-              onClick={() => exportReports('csv')}
-              disabled={loading}
-              className="w-full btn btn-primary"
+            <Button
+              className="w-full"
+              disabled={busy}
+              onClick={() => run('Risk reports', () => exportService.reports({ format: 'csv' }))}
             >
               Export as CSV
-            </button>
-            <button
-              onClick={() => exportReports('xlsx')}
-              disabled={loading}
-              className="w-full btn btn-secondary"
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
+              disabled={busy}
+              onClick={() => run('Risk reports', () => exportService.reports({ format: 'xlsx' }))}
             >
               Export as Excel
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
 
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Export Summary</h2>
+        <Card title="Monthly summary" subtitle="Consolidated surveillance totals.">
           <div className="space-y-2">
-            <button
-              onClick={() => exportSummary('csv')}
-              disabled={loading}
-              className="w-full btn btn-primary"
+            <Button
+              className="w-full"
+              disabled={busy}
+              onClick={() => run('Summary', () => exportService.summary({ format: 'csv', diseaseId: diseaseId || undefined }))}
             >
               Export as CSV
-            </button>
-            <button
-              onClick={() => exportSummary('xlsx')}
-              disabled={loading}
-              className="w-full btn btn-secondary"
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
+              disabled={busy}
+              onClick={() => run('Summary', () => exportService.summary({ format: 'xlsx', diseaseId: diseaseId || undefined }))}
             >
               Export as Excel
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
-  )
+  );
 }
-
-

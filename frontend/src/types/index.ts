@@ -1,71 +1,180 @@
-export type UserRole = 'ADMIN' | 'BHW' | 'HOSPITAL_ENCODER' | 'RESIDENT'
-export type CaseStatus = 'SUSPECTED' | 'CONFIRMED'
-export type CaseSource = 'PUBLIC_HOSPITAL' | 'PRIVATE_HOSPITAL' | 'RHU' | 'BHW'
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
-export type AlertStatus = 'ACTIVE' | 'RESOLVED' | 'DISMISSED'
+export type UserRole = 'ADMIN' | 'BHW' | 'HOSPITAL_ENCODER' | 'RESIDENT';
+export type DiseaseCategory =
+  | 'VECTOR_BORNE'
+  | 'WATER_BORNE'
+  | 'AIRBORNE'
+  | 'DIRECT_CONTACT'
+  | 'OTHER';
+export type CaseStatus = 'SUSPECTED' | 'PROBABLE' | 'CONFIRMED';
+export type CaseOutcome = 'ONGOING' | 'RECOVERED' | 'DIED';
+export type CaseSource = 'PUBLIC_HOSPITAL' | 'PRIVATE_HOSPITAL' | 'RHU' | 'BHW';
+export type Sex = 'MALE' | 'FEMALE';
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+export type AlertStatus = 'ACTIVE' | 'RESOLVED' | 'DISMISSED';
+
+/** Standard API response envelope returned by every endpoint. */
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export interface Paginated<T> {
+  items: T[];
+  pagination: PaginationMeta;
+}
 
 export interface User {
-    id: string
-    email: string
-    firstName: string
-    lastName: string
-    role: UserRole
-    barangayId?: string | null
-    isActive: boolean
-    barangay?: Barangay
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  barangayId?: string | null;
+  isActive: boolean;
+  barangay?: Barangay | null;
+  createdAt?: string;
 }
 
 export interface Barangay {
-    id: string
-    name: string
-    code: string
-    municipality: string
-    province: string
-    population?: number
+  id: string;
+  name: string;
+  code: string;
+  municipality: string;
+  province: string;
+  population?: number | null;
+  _count?: {
+    users?: number;
+    cases?: number;
+    reports?: number;
+    alerts?: number;
+  };
 }
 
-export interface DengueCase {
-    id: string
-    barangayId: string
-    reportedBy: string
-    dateReported: string
-    age: number
-    ageGroup: string
-    status: CaseStatus
-    source: CaseSource
-    notes?: string
-    barangay?: Barangay
-    reporter?: User
+export interface Disease {
+  id: string;
+  name: string;
+  code: string;
+  category: DiseaseCategory;
+  description?: string | null;
+  isNotifiable: boolean;
+  isActive: boolean;
+  color?: string | null;
+  seasonalMonths: number[];
+  caseThreshold: number;
+  spikePercentage: number;
+  _count?: { cases?: number; alerts?: number };
 }
 
-export interface EnvironmentalReport {
-    id: string
-    barangayId: string
-    reportedBy: string
-    dateReported: string
-    stagnantWater: boolean
-    poorWasteDisposal: boolean
-    cloggedDrainage: boolean
-    housingCongestion: boolean
-    photoUrl?: string
-    notes?: string
-    barangay?: Barangay
-    reporter?: User
+export interface Case {
+  id: string;
+  diseaseId: string;
+  barangayId: string;
+  reportedBy: string;
+  dateReported: string;
+  onsetDate?: string | null;
+  age: number;
+  ageGroup: string;
+  sex?: Sex | null;
+  status: CaseStatus;
+  outcome: CaseOutcome;
+  source: CaseSource;
+  notes?: string | null;
+  disease?: Disease;
+  barangay?: Barangay;
+  reporter?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
+}
+
+export interface RiskReport {
+  id: string;
+  barangayId: string;
+  reportedBy: string;
+  category: 'VECTOR_BORNE' | 'WATER_BORNE' | 'AIRBORNE';
+  dateReported: string;
+  stagnantWater: boolean;
+  poorWasteDisposal: boolean;
+  cloggedDrainage: boolean;
+  housingCongestion: boolean;
+  unsafeWaterSource: boolean;
+  poorSanitation: boolean;
+  openDefecation: boolean;
+  foodContamination: boolean;
+  overcrowding: boolean;
+  poorVentilation: boolean;
+  activeRespiratoryCase: boolean;
+  photoUrl?: string | null;
+  notes?: string | null;
+  barangay?: Barangay;
+  reporter?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
 }
 
 export interface Alert {
-    id: string
-    barangayId: string
-    createdBy?: string
-    title: string
-    message: string
-    riskLevel: RiskLevel
-    status: AlertStatus
-    triggeredAt: string
-    resolvedAt?: string
-    metadata?: string
-    barangay?: Barangay
-    creator?: User
+  id: string;
+  barangayId: string;
+  diseaseId?: string | null;
+  createdBy?: string | null;
+  title: string;
+  message: string;
+  riskLevel: RiskLevel;
+  status: AlertStatus;
+  triggeredAt: string;
+  resolvedAt?: string | null;
+  metadata?: string | null;
+  barangay?: Barangay;
+  disease?: Disease | null;
 }
 
+export interface DashboardStats {
+  totalCases: number;
+  currentMonthCases: number;
+  previousMonthCases: number;
+  caseIncrease: number;
+  totalBarangays: number;
+  totalDiseases: number;
+  activeAlerts: number;
+  totalReports: number;
+}
 
+export interface CaseTrend {
+  month: string;
+  year: number;
+  monthNumber: number;
+  cases: number;
+}
+
+export interface BarangayRanking {
+  id: string;
+  name: string;
+  code: string;
+  municipality: string;
+  province: string;
+  caseCount: number;
+  reportCount: number;
+  activeAlerts: number;
+  riskScore: number;
+}
+
+export interface DiseaseBreakdown {
+  diseaseId: string;
+  name: string;
+  code: string;
+  color?: string | null;
+  caseCount: number;
+}
+
+export interface BarangayCaseData {
+  id: string;
+  name: string;
+  code: string;
+  municipality: string;
+  province: string;
+  caseCount: number;
+  population: number;
+}

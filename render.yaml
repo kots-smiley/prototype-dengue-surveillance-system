@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: dengue-surveillance-api
+    name: healthwatch-api
     env: node
     plan: starter
     region: oregon
     rootDir: backend
-    buildCommand: cd backend && npm install && npm run prisma:generate && npm run build
+    buildCommand: npm install && npm run prisma:generate && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -20,8 +20,9 @@ services:
       - key: PORT
         fromService:
           type: web
-          name: dengue-surveillance-api
+          name: healthwatch-api
           property: port
       - key: FRONTEND_URL
         sync: false
-
+      - key: FRONTEND_URLS
+        sync: false

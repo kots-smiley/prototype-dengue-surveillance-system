@@ -64,6 +64,10 @@ export default function BarangayForm() {
     try {
       const payload = {
         ...data,
+        name: data.name.trim(),
+        code: data.code.trim().toUpperCase(),
+        municipality: data.municipality.trim(),
+        province: data.province.trim(),
         population: data.population === '' ? undefined : Number(data.population),
       };
       if (id) {
@@ -87,9 +91,12 @@ export default function BarangayForm() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <PageHeader title={id ? 'Edit Barangay' : 'New Barangay'} />
+      <PageHeader
+        title={id ? 'Edit Barangay' : 'New Barangay'}
+        subtitle="Capture core location details first, then optional population context."
+      />
 
-      <Card>
+      <Card title="1) Core location details">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input label="Barangay Name *" {...register('name')} error={errors.name?.message} placeholder="e.g. Magsaysay (Poblacion)" />
           <Input label="Barangay Code *" {...register('code')} error={errors.code?.message} placeholder="e.g. LPZ-MGS" />
@@ -99,14 +106,16 @@ export default function BarangayForm() {
             <Input label="Province *" {...register('province')} error={errors.province?.message} />
           </div>
 
-          <Input
-            label="Population (optional)"
-            type="number"
-            min={1}
-            {...register('population')}
-            error={errors.population?.message}
-            placeholder="e.g. 5000"
-          />
+          <Card title="2) Optional demographics" className="border border-slate-100 shadow-none">
+            <Input
+              label="Population (optional)"
+              type="number"
+              min={1}
+              {...register('population')}
+              error={errors.population?.message}
+              placeholder="e.g. 5000"
+            />
+          </Card>
 
           <div className="flex gap-3">
             <Button type="submit" disabled={submitting}>

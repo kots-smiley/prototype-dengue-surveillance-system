@@ -91,7 +91,9 @@ export default function DiseaseForm() {
     try {
       const payload = {
         ...data,
+        name: data.name.trim(),
         code: data.code.toUpperCase(),
+        description: data.description?.trim() || undefined,
         color: data.color || undefined,
         seasonalMonths,
       };
@@ -116,9 +118,12 @@ export default function DiseaseForm() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <PageHeader title={id ? 'Edit Disease' : 'New Disease'} />
+      <PageHeader
+        title={id ? 'Edit Disease' : 'New Disease'}
+        subtitle="Set disease profile first, then configure alert logic."
+      />
 
-      <Card>
+      <Card title="1) Disease profile">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Name *" {...register('name')} error={errors.name?.message} placeholder="e.g. Dengue" />
@@ -138,7 +143,8 @@ export default function DiseaseForm() {
 
           <Textarea label="Description" rows={2} {...register('description')} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card title="2) Alert thresholds" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Monthly Case Threshold (HIGH) *"
               type="number"
@@ -153,9 +159,10 @@ export default function DiseaseForm() {
               {...register('spikePercentage')}
               error={errors.spikePercentage?.message}
             />
-          </div>
+            </div>
+          </Card>
 
-          <div>
+          <Card title="3) Seasonal timing" className="border border-slate-100 shadow-none">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Seasonal Transmission Months
             </label>
@@ -182,12 +189,14 @@ export default function DiseaseForm() {
             <p className="text-xs text-gray-400 mt-1">
               Months when transmission is elevated (drives early-warning escalation).
             </p>
-          </div>
+          </Card>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Card title="4) Activation options" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Checkbox label="Active (tracked in the system)" {...register('isActive')} />
             <Checkbox label="PIDSR notifiable disease" {...register('isNotifiable')} />
-          </div>
+            </div>
+          </Card>
 
           <div className="flex gap-3">
             <Button type="submit" disabled={submitting}>

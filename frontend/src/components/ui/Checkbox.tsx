@@ -10,16 +10,16 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     return (
       <label
         htmlFor={checkboxId}
-        className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50"
+        className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm text-slate-700 transition-colors hover:bg-slate-50"
       >
         <input
           id={checkboxId}
           ref={ref}
           type="checkbox"
-          className={`h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 ${className}`}
+          className={`h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 ${className}`}
           {...rest}
         />
-        <span className="text-sm text-gray-700">{label}</span>
+        <span>{label}</span>
       </label>
     );
   }

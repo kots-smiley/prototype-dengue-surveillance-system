@@ -6,13 +6,13 @@ interface SpinnerProps {
 export function Spinner({ label = 'Loading...', fullScreen = false }: SpinnerProps) {
   const content = (
     <div className="text-center">
-      <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4" />
-      <div className="text-lg text-gray-600">{label}</div>
+      <div className="mb-3 inline-block h-11 w-11 animate-spin rounded-full border-4 border-slate-200 border-t-primary-600" />
+      <div className="text-sm font-medium text-slate-600">{label}</div>
     </div>
   );
 
   if (fullScreen) {
-    return <div className="min-h-screen flex items-center justify-center">{content}</div>;
+    return <div className="flex min-h-screen items-center justify-center">{content}</div>;
   }
-  return <div className="py-12 flex items-center justify-center">{content}</div>;
+  return <div className="flex items-center justify-center py-12">{content}</div>;
 }

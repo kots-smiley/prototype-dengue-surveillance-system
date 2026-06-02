@@ -87,9 +87,9 @@ export default function UserForm() {
     setSubmitting(true);
     try {
       const base = {
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        email: data.email.trim(),
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
         role: data.role,
         barangayId: data.barangayId || undefined,
         isActive: data.isActive,
@@ -116,9 +116,12 @@ export default function UserForm() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <PageHeader title={id ? 'Edit User' : 'New User'} />
+      <PageHeader
+        title={id ? 'Edit User' : 'New User'}
+        subtitle="Complete identity details first, then account access settings."
+      />
 
-      <Card>
+      <Card title="1) Identity">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="First Name *" {...register('firstName')} error={errors.firstName?.message} />
@@ -127,15 +130,18 @@ export default function UserForm() {
 
           <Input label="Email *" type="email" {...register('email')} error={errors.email?.message} />
 
-          <Input
-            label={id ? 'Password (leave blank to keep current)' : 'Password *'}
-            type="password"
-            {...register('password')}
-            error={errors.password?.message}
-            placeholder={id ? 'Leave blank to keep current password' : 'Enter password'}
-          />
+          <Card title="2) Access credentials" className="border border-slate-100 shadow-none">
+            <Input
+              label={id ? 'Password (leave blank to keep current)' : 'Password *'}
+              type="password"
+              {...register('password')}
+              error={errors.password?.message}
+              placeholder={id ? 'Leave blank to keep current password' : 'Enter password'}
+            />
+          </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card title="3) Role and assignment" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select label="Role *" {...register('role')} error={errors.role?.message}>
               {USER_ROLE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -152,13 +158,16 @@ export default function UserForm() {
                 </option>
               ))}
             </Select>
-          </div>
+            </div>
 
-          {selectedRole === 'BHW' && !selectedBarangay && (
-            <p className="text-yellow-600 text-sm">BHW users should be assigned to a barangay.</p>
-          )}
+            {selectedRole === 'BHW' && !selectedBarangay && (
+              <p className="text-sm text-yellow-600">BHW users should be assigned to a barangay.</p>
+            )}
+          </Card>
 
-          <Checkbox label="Active" {...register('isActive')} />
+          <Card title="4) Account state" className="border border-slate-100 shadow-none">
+            <Checkbox label="Active" {...register('isActive')} />
+          </Card>
 
           <div className="flex gap-3">
             <Button type="submit" disabled={submitting}>

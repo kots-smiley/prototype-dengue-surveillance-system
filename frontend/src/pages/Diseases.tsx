@@ -43,7 +43,7 @@ export default function Diseases() {
         }
       />
 
-      <Card>
+      <Card title="Configured diseases" subtitle="Critical states include text + badge color for redundancy.">
         {loading ? (
           <Spinner label="Loading diseases..." />
         ) : diseases.length === 0 ? (
@@ -58,22 +58,22 @@ export default function Diseases() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="table-shell">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="table-head">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Disease</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Threshold</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="table-head-cell">Disease</th>
+                  <th className="table-head-cell">Code</th>
+                  <th className="table-head-cell">Category</th>
+                  <th className="table-head-cell">Threshold</th>
+                  <th className="table-head-cell">Status</th>
+                  <th className="table-head-cell">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200 bg-white">
                 {diseases.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <tr key={d.id} className="hover:bg-slate-50">
+                    <td className="table-cell whitespace-nowrap font-medium text-slate-900">
                       <span className="inline-flex items-center gap-2">
                         <span
                           className="inline-block w-3 h-3 rounded-full"
@@ -82,19 +82,19 @@ export default function Diseases() {
                         {d.name}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{d.code}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                    <td className="table-cell whitespace-nowrap">{d.code}</td>
+                    <td className="table-cell whitespace-nowrap">
                       {humanize(d.category)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                    <td className="table-cell whitespace-nowrap">
                       {d.caseThreshold}/mo · +{d.spikePercentage}%
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="table-cell whitespace-nowrap">
                       <Badge tone={d.isActive ? 'success' : 'info'}>
                         {d.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <td className="table-cell whitespace-nowrap">
                       <div className="flex gap-3">
                         <Link to={`/diseases/${d.id}/edit`} className="text-primary-600 hover:text-primary-800">
                           Edit

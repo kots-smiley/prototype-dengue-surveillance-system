@@ -9,6 +9,8 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Pagination } from '../components/ui/Pagination';
 import { ConfirmModal } from '../components/ui/Modal';
 import { DiseaseFilter } from '../components/domain/DiseaseFilter';
+import { Select } from '../components/ui/Select';
+import { Input } from '../components/ui/Input';
 import { useApiResource } from '../hooks/useApiResource';
 import { caseService } from '../services/case-service';
 import { diseaseService } from '../services/disease-service';
@@ -23,7 +25,7 @@ export default function Cases() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: diseasesData } = useApiResource(() => diseaseService.list({ isActive: 'true' }), []);
-  const { data, loading, refetch } = useApiResource(
+  const { data, loading, refreshing, refetch } = useApiResource(
     () =>
       caseService.list({
         page,
@@ -70,7 +72,7 @@ export default function Cases() {
         }
       />
 
-      <Card>
+      <Card title="Filter and narrow" subtitle="Use only the fields you need to avoid overload.">
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <DiseaseFilter
             diseases={diseases}
@@ -78,57 +80,36 @@ export default function Cases() {
             onChange={(v) => updateFilter('diseaseId', v)}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              value={filters.status}
-              onChange={(e) => updateFilter('status', e.target.value)}
-              className="input"
-            >
+            <Select label="Status" value={filters.status} onChange={(e) => updateFilter('status', e.target.value)}>
               <option value="">All</option>
               {CASE_STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
-            <select
-              value={filters.source}
-              onChange={(e) => updateFilter('source', e.target.value)}
-              className="input"
-            >
+            <Select label="Source" value={filters.source} onChange={(e) => updateFilter('source', e.target.value)}>
               <option value="">All</option>
               {CASE_SOURCE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => updateFilter('startDate', e.target.value)}
-              className="input"
-            />
+            <Input label="Start Date" type="date" value={filters.startDate} onChange={(e) => updateFilter('startDate', e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => updateFilter('endDate', e.target.value)}
-              className="input"
-            />
+            <Input label="End Date" type="date" value={filters.endDate} onChange={(e) => updateFilter('endDate', e.target.value)} />
           </div>
         </div>
       </Card>
 
-      <Card>
+      <Card title="Case records" subtitle="Statuses are always shown with text labels, not color alone.">
+        {refreshing && <p className="mb-3 text-xs font-medium text-slate-500">Refreshing records...</p>}
         {loading ? (
           <Spinner label="Loading cases..." />
         ) : cases.length === 0 ? (
@@ -143,37 +124,37 @@ export default function Cases() {
           />
         ) : (
           <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="table-shell">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Disease</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barangay</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="table-head-cell">Date</th>
+                    <th className="table-head-cell">Disease</th>
+                    <th className="table-head-cell">Barangay</th>
+                    <th className="table-head-cell">Status</th>
+                    <th className="table-head-cell">Source</th>
+                    <th className="table-head-cell">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200 bg-white">
                   {cases.map((c) => (
-                    <tr key={c.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    <tr key={c.id} className="hover:bg-slate-50">
+                      <td className="table-cell whitespace-nowrap">
                         {formatDate(c.dateReported)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="table-cell whitespace-nowrap font-semibold text-slate-900">
                         {c.disease?.name ?? 'N/A'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="table-cell whitespace-nowrap">
                         {c.barangay?.name ?? 'N/A'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="table-cell whitespace-nowrap">
                         <span className={caseStatusBadge(c.status)}>{humanize(c.status)}</span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="table-cell whitespace-nowrap">
                         {humanize(c.source)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      <td className="table-cell whitespace-nowrap">
                         <div className="flex gap-3">
                           <Link to={`/cases/${c.id}/edit`} className="text-primary-600 hover:text-primary-800">
                             Edit

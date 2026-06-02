@@ -26,17 +26,17 @@ export function ConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h2 id="modal-title" className="text-lg font-semibold text-gray-900 mb-2">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+        <h2 id="modal-title" className="mb-2 text-lg font-semibold text-slate-900">
           {title}
         </h2>
-        <div className="text-sm text-gray-600 mb-6">{message}</div>
-        <div className="flex justify-end gap-3">
+        <div className="mb-6 text-sm text-slate-600">{message}</div>
+        <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
             {cancelText}
           </Button>

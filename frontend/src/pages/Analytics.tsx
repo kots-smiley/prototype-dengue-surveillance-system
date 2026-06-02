@@ -19,6 +19,7 @@ import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { Badge } from '../components/ui/Badge';
 import { DiseaseFilter } from '../components/domain/DiseaseFilter';
+import { Select } from '../components/ui/Select';
 import { useApiResource } from '../hooks/useApiResource';
 import { dashboardService } from '../services/dashboard-service';
 import { diseaseService } from '../services/disease-service';
@@ -87,27 +88,27 @@ export default function Analytics() {
         title="Analytics"
         subtitle="Trends, rankings, and rule-based projections"
         actions={
-          <select
-            className="input max-w-[10rem]"
+          <Select
+            className="max-w-[12rem]"
             value={months}
             onChange={(e) => setMonths(parseInt(e.target.value, 10))}
+            label="Timeline"
           >
             <option value={12}>Last 12 months</option>
             <option value={24}>Last 24 months</option>
             <option value={36}>Last 36 months</option>
-          </select>
+          </Select>
         }
       />
 
-      <Card>
+      <Card title="Filter context" subtitle="Analyze one disease at a time, or all diseases.">
         <div className="max-w-xs">
           <DiseaseFilter diseases={diseases} value={diseaseId} onChange={setDiseaseId} />
         </div>
       </Card>
 
-      <Card>
-        <h2 className="text-lg font-semibold mb-1">Case Trend & 3-Month Projection</h2>
-        <p className="text-sm text-gray-500 mb-4">
+      <Card title="Case trend and projection">
+        <p className="mb-4 text-sm text-slate-600">
           Dashed forecast uses simple linear regression on historical counts (rule-based, not AI/ML).
         </p>
         <ResponsiveContainer width="100%" height={320}>
@@ -123,10 +124,9 @@ export default function Analytics() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">Cases by Disease</h2>
+        <Card title="Cases by disease">
           {breakdown.length === 0 ? (
-            <p className="text-gray-500 text-sm py-12 text-center">No case data yet.</p>
+              <p className="py-12 text-center text-sm text-slate-500">No case data yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
@@ -152,8 +152,7 @@ export default function Analytics() {
           )}
         </Card>
 
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">Barangay Risk Ranking</h2>
+        <Card title="Barangay risk ranking">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={rankings} margin={{ top: 10, right: 20, left: 0, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -166,31 +165,30 @@ export default function Analytics() {
         </Card>
       </div>
 
-      <Card>
-        <h2 className="text-lg font-semibold mb-4">Top Risk Barangays</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+      <Card title="Top risk barangays" subtitle="Risk state includes text labels and color-coded badges.">
+        <div className="table-shell">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="table-head">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barangay</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cases</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reports</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active Alerts</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Risk</th>
+                <th className="table-head-cell">#</th>
+                <th className="table-head-cell">Barangay</th>
+                <th className="table-head-cell">Cases</th>
+                <th className="table-head-cell">Reports</th>
+                <th className="table-head-cell">Active Alerts</th>
+                <th className="table-head-cell">Risk</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-200 bg-white">
               {rankings.map((r, idx) => {
                 const risk = riskTone(r.riskScore);
                 return (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-500">{idx + 1}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{r.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{r.caseCount}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{r.reportCount}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{r.activeAlerts}</td>
-                    <td className="px-4 py-3 text-sm">
+                  <tr key={r.id} className="hover:bg-slate-50">
+                    <td className="table-cell">{idx + 1}</td>
+                    <td className="table-cell font-semibold text-slate-900">{r.name}</td>
+                    <td className="table-cell">{r.caseCount}</td>
+                    <td className="table-cell">{r.reportCount}</td>
+                    <td className="table-cell">{r.activeAlerts}</td>
+                    <td className="table-cell">
                       <Badge tone={risk.tone}>
                         {risk.label} ({r.riskScore})
                       </Badge>

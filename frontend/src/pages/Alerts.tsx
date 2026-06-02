@@ -9,11 +9,12 @@ import { useApiResource } from '../hooks/useApiResource';
 import { alertService } from '../services/alert-service';
 import { formatDate, humanize, riskLevelBadge } from '../utils/formatters';
 import { ALERT_STATUS_OPTIONS } from '../configuration/options';
+import { Select } from '../components/ui/Select';
 
 export default function Alerts() {
   const [status, setStatus] = useState('ACTIVE');
 
-  const { data, loading, refetch } = useApiResource(
+  const { data, loading, refreshing, refetch } = useApiResource(
     () => alertService.list({ status: status || undefined, limit: 100 }),
     [status],
     { errorMessage: 'Failed to load alerts' }
@@ -45,17 +46,16 @@ export default function Alerts() {
     <div className="space-y-6">
       <PageHeader title="Early Warning Alerts" subtitle="Rule-based risk alerts by disease and barangay" />
 
-      <Card>
+      <Card title="Alert status filter" subtitle="Switch between active and resolved alerts.">
         <div className="max-w-xs">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
+          <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All</option>
             {ALERT_STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </Card>
 
@@ -71,10 +71,11 @@ export default function Alerts() {
         </Card>
       ) : (
         <div className="grid gap-4">
+          {refreshing && <p className="text-xs font-medium text-slate-500">Refreshing alerts...</p>}
           {alerts.map((alert) => (
-            <div
+            <Card
               key={alert.id}
-              className={`card border-l-4 ${
+              className={`border-l-4 ${
                 alert.riskLevel === 'HIGH'
                   ? 'border-red-500'
                   : alert.riskLevel === 'MEDIUM'
@@ -87,12 +88,10 @@ export default function Alerts() {
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <h3 className="text-lg font-semibold">{alert.title}</h3>
                     <span className={riskLevelBadge(alert.riskLevel)}>{alert.riskLevel}</span>
-                    {alert.disease && (
-                      <span className="badge badge-info">{alert.disease.name}</span>
-                    )}
+                    {alert.disease && <span className="badge badge-info">{alert.disease.name}</span>}
                   </div>
-                  <p className="text-gray-700 mb-2">{alert.message}</p>
-                  <div className="text-sm text-gray-500 space-y-0.5">
+                  <p className="mb-2 text-slate-700">{alert.message}</p>
+                  <div className="space-y-0.5 text-sm text-slate-500">
                     <p>Barangay: {alert.barangay?.name ?? 'N/A'}</p>
                     <p>Status: {humanize(alert.status)}</p>
                     <p>Triggered: {formatDate(alert.triggeredAt)}</p>
@@ -109,7 +108,7 @@ export default function Alerts() {
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

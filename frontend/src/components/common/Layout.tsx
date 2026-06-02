@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types';
@@ -26,7 +25,6 @@ export function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -39,35 +37,19 @@ export function Layout() {
   const visibleItems = NAV_ITEMS.filter((item) => user && item.roles.includes(user.role));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100"
-                aria-label="Toggle menu"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-primary-600 leading-tight">{APP_NAME}</h1>
-                <p className="hidden sm:block text-xs text-gray-400">{APP_LOCATION}</p>
-              </div>
+    <div className="min-h-screen bg-slate-50">
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <div>
+              <h1 className="leading-tight text-xl font-bold text-primary-600">{APP_NAME}</h1>
+              <p className="hidden text-xs text-slate-500 sm:block">{APP_LOCATION}</p>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="hidden rounded-lg bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 sm:inline">
                 {user?.firstName} {user?.lastName} ({user?.role})
               </span>
-              <button onClick={handleLogout} className="btn btn-secondary text-xs sm:text-sm">
+              <button onClick={handleLogout} className="btn btn-secondary">
                 Logout
               </button>
             </div>
@@ -75,41 +57,29 @@ export function Layout() {
         </div>
       </header>
 
-      <div className="flex relative">
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        <aside
-          className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg lg:shadow-sm min-h-[calc(100vh-4rem)] border-r transform transition-transform duration-300 ease-in-out ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-          }`}
-        >
-          <nav className="p-4 space-y-1">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <nav className="flex gap-2 overflow-x-auto py-3" aria-label="Primary navigation">
             {visibleItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={`block px-4 py-2 rounded-lg transition-colors ${
+                className={`whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
                   isActive(item.to)
-                    ? 'bg-primary-100 text-primary-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 {item.label}
               </Link>
             ))}
           </nav>
-        </aside>
-
-        <main className="flex-1 p-4 sm:p-6 w-full lg:w-auto">
-          <Outlet />
-        </main>
+        </div>
       </div>
+
+      <main className="mx-auto w-full max-w-7xl p-4 sm:p-6">
+        <Outlet />
+      </main>
     </div>
   );
 }

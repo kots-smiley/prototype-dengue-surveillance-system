@@ -8,6 +8,7 @@ import { Spinner } from '../components/ui/Spinner';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Pagination } from '../components/ui/Pagination';
 import { ConfirmModal } from '../components/ui/Modal';
+import { Select } from '../components/ui/Select';
 import { useApiResource } from '../hooks/useApiResource';
 import { riskReportService } from '../services/risk-report-service';
 import { formatDate, humanize } from '../utils/formatters';
@@ -30,7 +31,7 @@ export default function Reports() {
   const [category, setCategory] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data, loading, refetch } = useApiResource(
+  const { data, loading, refreshing, refetch } = useApiResource(
     () => riskReportService.list({ page, limit, category: category || undefined }),
     [page, limit, category],
     { errorMessage: 'Failed to load risk reports' }
@@ -62,16 +63,15 @@ export default function Reports() {
         }
       />
 
-      <Card>
+      <Card title="Filter context" subtitle="Limit to one category for faster review.">
         <div className="max-w-xs">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-          <select
+          <Select
+            label="Category"
             value={category}
             onChange={(e) => {
               setPage(1);
               setCategory(e.target.value);
             }}
-            className="input"
           >
             <option value="">All categories</option>
             {DISEASE_CATEGORY_OPTIONS.filter((o) =>
@@ -81,11 +81,12 @@ export default function Reports() {
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </Card>
 
-      <Card>
+      <Card title="Risk reports" subtitle="Risk factors are shown as explicit text labels.">
+        {refreshing && <p className="mb-3 text-xs font-medium text-slate-500">Refreshing reports...</p>}
         {loading ? (
           <Spinner label="Loading reports..." />
         ) : reports.length === 0 ? (
@@ -101,33 +102,33 @@ export default function Reports() {
           />
         ) : (
           <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="table-shell">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barangay</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Risk Factors</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="table-head-cell">Date</th>
+                    <th className="table-head-cell">Barangay</th>
+                    <th className="table-head-cell">Category</th>
+                    <th className="table-head-cell">Risk Factors</th>
+                    <th className="table-head-cell">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200 bg-white">
                   {reports.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    <tr key={r.id} className="hover:bg-slate-50">
+                      <td className="table-cell whitespace-nowrap">
                         {formatDate(r.dateReported)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="table-cell whitespace-nowrap">
                         {r.barangay?.name ?? 'N/A'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      <td className="table-cell whitespace-nowrap">
                         {humanize(r.category)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
+                      <td className="table-cell max-w-md">
                         {activeFactorLabels(r)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      <td className="table-cell whitespace-nowrap">
                         <div className="flex gap-3">
                           <Link to={`/reports/${r.id}/edit`} className="text-primary-600 hover:text-primary-800">
                             Edit

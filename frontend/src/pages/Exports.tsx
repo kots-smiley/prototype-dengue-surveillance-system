@@ -31,18 +31,17 @@ export default function Exports() {
     <div className="space-y-6">
       <PageHeader title="Data Exports" subtitle="Download surveillance data as CSV or Excel" />
 
-      <Card>
+      <Card title="Export scope" subtitle="Limit datasets by disease when needed.">
         <div className="max-w-xs">
           <DiseaseFilter diseases={diseases} value={diseaseId} onChange={setDiseaseId} />
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="mt-1 text-xs text-slate-500">
             Applies to Cases and Summary exports.
           </p>
         </div>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">Cases</h2>
+        <Card title="Cases" subtitle="Detailed line-level records.">
           <div className="space-y-2">
             <Button
               className="w-full"
@@ -62,8 +61,7 @@ export default function Exports() {
           </div>
         </Card>
 
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">Risk Reports</h2>
+        <Card title="Risk reports" subtitle="Environmental and transmission factors.">
           <div className="space-y-2">
             <Button
               className="w-full"
@@ -83,8 +81,7 @@ export default function Exports() {
           </div>
         </Card>
 
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">Monthly Summary</h2>
+        <Card title="Monthly summary" subtitle="Consolidated surveillance totals.">
           <div className="space-y-2">
             <Button
               className="w-full"

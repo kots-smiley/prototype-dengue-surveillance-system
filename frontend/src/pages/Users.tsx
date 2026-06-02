@@ -54,7 +54,7 @@ export default function Users() {
         }
       />
 
-      <Card>
+      <Card title="User accounts" subtitle="Role, status, and barangay are grouped for quick scanning.">
         {loading ? (
           <Spinner label="Loading users..." />
         ) : users.length === 0 ? (
@@ -69,37 +69,37 @@ export default function Users() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="table-shell">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="table-head">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barangay</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="table-head-cell">Name</th>
+                  <th className="table-head-cell">Email</th>
+                  <th className="table-head-cell">Role</th>
+                  <th className="table-head-cell">Barangay</th>
+                  <th className="table-head-cell">Status</th>
+                  <th className="table-head-cell">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200 bg-white">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                  <tr key={u.id} className="hover:bg-slate-50">
+                    <td className="table-cell whitespace-nowrap text-slate-900">
                       {u.firstName} {u.lastName}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{u.email}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                    <td className="table-cell whitespace-nowrap">{u.email}</td>
+                    <td className="table-cell whitespace-nowrap">
                       {humanize(u.role)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                    <td className="table-cell whitespace-nowrap">
                       {u.barangay?.name ?? 'N/A'}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="table-cell whitespace-nowrap">
                       <Badge tone={u.isActive ? 'success' : 'danger'}>
                         {u.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <td className="table-cell whitespace-nowrap">
                       <div className="flex gap-3">
                         <Link to={`/users/${u.id}/edit`} className="text-primary-600 hover:text-primary-800">
                           Edit

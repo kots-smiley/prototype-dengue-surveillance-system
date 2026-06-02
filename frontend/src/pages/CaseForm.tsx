@@ -101,6 +101,7 @@ export default function CaseForm() {
     try {
       const payload = {
         ...data,
+        notes: data.notes?.trim() || undefined,
         sex: data.sex || undefined,
         onsetDate: data.onsetDate || undefined,
       };
@@ -125,9 +126,12 @@ export default function CaseForm() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <PageHeader title={id ? 'Edit Case' : 'New Case'} />
+      <PageHeader
+        title={id ? 'Edit Case' : 'New Case'}
+        subtitle="Complete required details first, then optional context."
+      />
 
-      <Card>
+      <Card title="1) Case identity">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select label="Disease *" {...register('diseaseId')} error={errors.diseaseId?.message}>
@@ -149,57 +153,63 @@ export default function CaseForm() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card title="2) Timeline and demographic details" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Date Reported *" type="date" {...register('dateReported')} error={errors.dateReported?.message} />
             <Input label="Onset Date" type="date" {...register('onsetDate')} error={errors.onsetDate?.message} />
-          </div>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input label="Age *" type="number" min={0} max={120} {...register('age')} error={errors.age?.message} />
-            <Select label="Age Group *" {...register('ageGroup')} error={errors.ageGroup?.message}>
-              <option value="">Select</option>
-              {AGE_GROUP_OPTIONS.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </Select>
-            <Select label="Sex" {...register('sex')} error={errors.sex?.message}>
-              <option value="">Not specified</option>
-              {SEX_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input label="Age *" type="number" min={0} max={120} {...register('age')} error={errors.age?.message} />
+              <Select label="Age Group *" {...register('ageGroup')} error={errors.ageGroup?.message}>
+                <option value="">Select</option>
+                {AGE_GROUP_OPTIONS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </Select>
+              <Select label="Sex" {...register('sex')} error={errors.sex?.message}>
+                <option value="">Not specified</option>
+                {SEX_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Select label="Status *" {...register('status')} error={errors.status?.message}>
-              {CASE_STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-            <Select label="Outcome *" {...register('outcome')} error={errors.outcome?.message}>
-              {CASE_OUTCOME_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-            <Select label="Source *" {...register('source')} error={errors.source?.message}>
-              <option value="">Select source</option>
-              {CASE_SOURCE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <Card title="3) Clinical status and source" className="border border-slate-100 shadow-none">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Select label="Status *" {...register('status')} error={errors.status?.message}>
+                {CASE_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+              <Select label="Outcome *" {...register('outcome')} error={errors.outcome?.message}>
+                {CASE_OUTCOME_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+              <Select label="Source *" {...register('source')} error={errors.source?.message}>
+                <option value="">Select source</option>
+                {CASE_SOURCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </Card>
 
-          <Textarea label="Notes" rows={3} {...register('notes')} />
+          <Card title="4) Optional notes" className="border border-slate-100 shadow-none">
+            <Textarea label="Notes" rows={3} {...register('notes')} />
+          </Card>
 
           <div className="flex gap-3">
             <Button type="submit" disabled={submitting}>

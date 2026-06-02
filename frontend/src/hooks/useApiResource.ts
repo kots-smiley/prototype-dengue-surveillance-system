@@ -13,10 +13,13 @@ export function useApiResource<T>(
 ) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const hasData = data !== null;
+    setLoading(!hasData);
+    setRefreshing(hasData);
     setError(null);
     try {
       const result = await fetcher();
@@ -28,13 +31,14 @@ export function useApiResource<T>(
       toast.error(options.errorMessage || message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [data, ...deps]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  return { data, loading, error, refetch: load };
+  return { data, loading, refreshing, error, refetch: load };
 }

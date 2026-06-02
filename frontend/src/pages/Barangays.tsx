@@ -59,9 +59,8 @@ export default function Barangays() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {barangays.map((b) => (
-            <Card key={b.id} className="hover:shadow-lg transition-shadow">
+            <Card key={b.id} className="hover:shadow-md transition-shadow" title={b.name}>
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-semibold text-gray-900">{b.name}</h3>
                 <div className="flex gap-2">
                   <Link
                     to={`/barangays/${b.id}/edit`}
@@ -77,12 +76,12 @@ export default function Barangays() {
                   </button>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 mb-1">Code: {b.code}</p>
-              <p className="text-sm text-gray-600 mb-1">
+              <p className="mb-1 text-sm text-slate-600">Code: {b.code}</p>
+              <p className="mb-1 text-sm text-slate-600">
                 {b.municipality}, {b.province}
               </p>
               {b.population != null && (
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-slate-600">
                   Population: {b.population.toLocaleString()}
                 </p>
               )}

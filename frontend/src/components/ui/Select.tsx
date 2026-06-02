@@ -9,17 +9,24 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, id, className = '', children, ...rest }, ref) => {
     const selectId = id || rest.name;
+    const hasError = Boolean(error);
     return (
-      <div>
+      <div className="space-y-1">
         {label && (
-          <label htmlFor={selectId} className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={selectId} className="input-label">
             {label}
           </label>
         )}
-        <select id={selectId} ref={ref} className={`input ${className}`} {...rest}>
+        <select
+          id={selectId}
+          ref={ref}
+          aria-invalid={hasError}
+          className={`input ${hasError ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : ''} ${className}`}
+          {...rest}
+        >
           {children}
         </select>
-        {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+        {error && <p className="input-error">{error}</p>}
       </div>
     );
   }

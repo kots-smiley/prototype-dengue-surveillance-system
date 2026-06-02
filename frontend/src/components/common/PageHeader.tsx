@@ -8,12 +8,15 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+    <header className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="kicker">HealthWatch workspace</p>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
-    </div>
+    </header>
   );
 }

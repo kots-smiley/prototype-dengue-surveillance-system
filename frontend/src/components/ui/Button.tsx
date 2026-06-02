@@ -18,11 +18,13 @@ export function Button({
   variant = 'primary',
   className = '',
   children,
+  type = 'button',
   ...rest
 }: ButtonProps) {
   return (
     <button
-      className={`btn ${variantClass[variant]} disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      type={type}
+      className={`btn ${variantClass[variant]} ${className}`}
       {...rest}
     >
       {children}

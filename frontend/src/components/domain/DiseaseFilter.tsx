@@ -17,8 +17,8 @@ export function DiseaseFilter({
   includeAll = true,
 }: DiseaseFilterProps) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <div className="space-y-1">
+      <label className="input-label">{label}</label>
       <select value={value} onChange={(e) => onChange(e.target.value)} className="input">
         {includeAll && <option value="">All diseases</option>}
         {diseases.map((d) => (

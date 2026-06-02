@@ -8,15 +8,22 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ label, error, id, className = '', ...rest }, ref) => {
     const textareaId = id || rest.name;
+    const hasError = Boolean(error);
     return (
-      <div>
+      <div className="space-y-1">
         {label && (
-          <label htmlFor={textareaId} className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={textareaId} className="input-label">
             {label}
           </label>
         )}
-        <textarea id={textareaId} ref={ref} className={`input ${className}`} {...rest} />
-        {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+        <textarea
+          id={textareaId}
+          ref={ref}
+          aria-invalid={hasError}
+          className={`input ${hasError ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : ''} ${className}`}
+          {...rest}
+        />
+        {error && <p className="input-error">{error}</p>}
       </div>
     );
   }

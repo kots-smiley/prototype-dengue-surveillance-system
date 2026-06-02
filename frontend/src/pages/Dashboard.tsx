@@ -75,7 +75,7 @@ export default function Dashboard() {
         }
       />
 
-      <Card>
+      <Card title="Filter context" subtitle="Narrow the dashboard to one disease when needed.">
         <div className="max-w-xs">
           <DiseaseFilter diseases={diseases} value={diseaseId} onChange={setDiseaseId} />
         </div>
@@ -94,8 +94,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">Monthly Case Trend (12 months)</h2>
+        <Card title="Monthly case trend" subtitle="12-month historical signal for reporting and surge checks.">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={trends} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -107,10 +106,9 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </Card>
 
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">Cases by Disease</h2>
+        <Card title="Cases by disease" subtitle="Breakdown of total case burden by disease.">
           {breakdown.length === 0 ? (
-            <p className="text-gray-500 text-sm py-12 text-center">No case data yet.</p>
+              <p className="py-12 text-center text-sm text-slate-500">No case data yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
@@ -137,8 +135,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card>
-        <h2 className="text-lg font-semibold mb-4">Cases by Barangay</h2>
+      <Card title="Cases by barangay" subtitle="Relative barangay burden using color and labels.">
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={barangays} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
             <CartesianGrid strokeDasharray="3 3" />

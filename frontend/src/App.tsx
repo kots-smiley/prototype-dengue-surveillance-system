@@ -10,9 +10,11 @@ function App() {
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#fff',
-            color: '#333',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            background: '#ffffff',
+            color: '#0f172a',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
+            borderRadius: '12px',
           },
           success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
           error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },

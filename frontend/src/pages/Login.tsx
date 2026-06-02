@@ -41,12 +41,13 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600 mb-1">{APP_NAME}</h1>
-          <p className="text-sm text-gray-500">{APP_FULL_NAME.split('—')[1]?.trim()}</p>
-          <p className="text-xs text-gray-400 mt-1">{APP_LOCATION}</p>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 via-white to-slate-100 p-4">
+      <div className="surface w-full max-w-md p-8">
+        <div className="mb-8 text-center">
+          <p className="kicker">Surveillance login</p>
+          <h1 className="mb-1 text-3xl font-bold text-primary-600">{APP_NAME}</h1>
+          <p className="text-sm text-slate-600">{APP_FULL_NAME.split('—')[1]?.trim()}</p>
+          <p className="mt-1 text-xs text-slate-500">{APP_LOCATION}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,7 +69,7 @@ export default function Login() {
             required
             placeholder="Enter your password"
           />
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button type="submit" disabled={submitting} className="w-full" aria-live="polite">
             {submitting ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>

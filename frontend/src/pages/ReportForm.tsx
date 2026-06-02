@@ -97,7 +97,7 @@ export default function ReportForm() {
         barangayId,
         category,
         dateReported: dateReported || undefined,
-        notes: notes || undefined,
+        notes: notes.trim() || undefined,
         ...factorPayload,
       };
 
@@ -124,9 +124,12 @@ export default function ReportForm() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <PageHeader title={id ? 'Edit Risk Report' : 'New Risk Report'} />
+      <PageHeader
+        title={id ? 'Edit Risk Report' : 'New Risk Report'}
+        subtitle="Follow the guided sections to reduce entry errors."
+      />
 
-      <Card>
+      <Card title="1) Location and timeline">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select
@@ -150,11 +153,7 @@ export default function ReportForm() {
             />
           </div>
 
-          <Select
-            label="Transmission Category *"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
+          <Select label="Transmission Category *" value={category} onChange={(e) => setCategory(e.target.value)}>
             {CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -162,8 +161,8 @@ export default function ReportForm() {
             ))}
           </Select>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <Card title="2) Observed risk factors" className="border border-slate-100 shadow-none">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
               Observed Risk Factors
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -176,14 +175,16 @@ export default function ReportForm() {
                 />
               ))}
             </div>
-          </div>
+          </Card>
 
-          <Textarea
-            label="Notes"
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
+          <Card title="3) Optional notes" className="border border-slate-100 shadow-none">
+            <Textarea
+              label="Notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Card>
 
           <div className="flex gap-3">
             <Button type="submit" disabled={submitting}>

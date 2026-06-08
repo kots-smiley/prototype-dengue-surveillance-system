@@ -16,6 +16,16 @@ export function toDateInputValue(value?: string | null): string {
   return value.split('T')[0];
 }
 
+/** Format an ISO date string as "MMM dd, yyyy h:mm a". */
+export function formatDateTime(value?: string | null): string {
+  if (!value) return 'N/A';
+  try {
+    return format(new Date(value), 'MMM dd, yyyy h:mm a');
+  } catch {
+    return 'N/A';
+  }
+}
+
 /** Turn an ENUM_LIKE_VALUE into "Enum like value". */
 export function humanize(value?: string | null): string {
   if (!value) return '';

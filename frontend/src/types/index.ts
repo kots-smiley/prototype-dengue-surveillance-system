@@ -11,6 +11,7 @@ export type CaseSource = 'PUBLIC_HOSPITAL' | 'PRIVATE_HOSPITAL' | 'RHU' | 'BHW';
 export type Sex = 'MALE' | 'FEMALE';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type AlertStatus = 'ACTIVE' | 'RESOLVED' | 'DISMISSED';
+export type FeedbackThreadStatus = 'OPEN' | 'CLOSED';
 
 /** Standard API response envelope returned by every endpoint. */
 export interface ApiResponse<T> {
@@ -129,6 +130,33 @@ export interface Alert {
   metadata?: string | null;
   barangay?: Barangay;
   disease?: Disease | null;
+}
+
+export interface FeedbackMessage {
+  id: string;
+  threadId: string;
+  senderId: string;
+  body: string;
+  readAt?: string | null;
+  createdAt: string;
+  sender?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email' | 'role'>;
+}
+
+export interface FeedbackThread {
+  id: string;
+  subject: string;
+  barangayId: string;
+  createdById: string;
+  status: FeedbackThreadStatus;
+  lastMessageAt: string;
+  createdAt: string;
+  updatedAt: string;
+  barangay?: Barangay;
+  creator?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email' | 'role'>;
+  messages?: FeedbackMessage[];
+  latestMessage?: FeedbackMessage | null;
+  unreadCount?: number;
+  _count?: { messages: number };
 }
 
 export interface DashboardStats {

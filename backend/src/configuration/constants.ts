@@ -62,6 +62,13 @@ export const AlertStatus = {
 } as const;
 export type AlertStatus = (typeof AlertStatus)[keyof typeof AlertStatus];
 
+export const FeedbackThreadStatus = {
+  OPEN: 'OPEN',
+  CLOSED: 'CLOSED',
+} as const;
+export type FeedbackThreadStatus =
+  (typeof FeedbackThreadStatus)[keyof typeof FeedbackThreadStatus];
+
 /** Risk-report factor keys grouped by transmission category. */
 export const RISK_FACTORS_BY_CATEGORY: Record<string, string[]> = {
   VECTOR_BORNE: ['stagnantWater', 'poorWasteDisposal', 'cloggedDrainage', 'housingCongestion'],

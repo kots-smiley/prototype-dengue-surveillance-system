@@ -8,6 +8,7 @@ import CaseForm from '../pages/CaseForm';
 import Reports from '../pages/Reports';
 import ReportForm from '../pages/ReportForm';
 import Alerts from '../pages/Alerts';
+import Feedback from '../pages/Feedback';
 import Analytics from '../pages/Analytics';
 import Diseases from '../pages/Diseases';
 import DiseaseForm from '../pages/DiseaseForm';
@@ -84,6 +85,14 @@ export function AppRoutes() {
         />
 
         <Route path="alerts" element={<Alerts />} />
+        <Route
+          path="feedback"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'BHW']}>
+              <Feedback />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="analytics"
           element={

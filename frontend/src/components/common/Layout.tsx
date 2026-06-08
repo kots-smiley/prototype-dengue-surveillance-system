@@ -14,6 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/cases', label: 'Cases', roles: ['ADMIN', 'BHW', 'HOSPITAL_ENCODER'] },
   { to: '/reports', label: 'Risk Reports', roles: ['ADMIN', 'BHW', 'RESIDENT'] },
   { to: '/alerts', label: 'Alerts', roles: ['ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT'] },
+  { to: '/feedback', label: 'Feedback', roles: ['ADMIN', 'BHW'] },
   { to: '/analytics', label: 'Analytics', roles: ['ADMIN', 'BHW', 'HOSPITAL_ENCODER'] },
   { to: '/diseases', label: 'Diseases', roles: ['ADMIN'] },
   { to: '/barangays', label: 'Barangays', roles: ['ADMIN'] },

@@ -1,0 +1,38 @@
+---
+description: Trigger when generating or editing user interfaces, form screens, state toggles, dashboards, complex navigation flows, or empty/error states
+globs:
+  - "**/components/**/*"
+  - "**/pages/**/*"
+  - "**/views/**/*"
+  - "**/*ui*"
+alwaysApply: false
+---
+
+# UI/UX Interaction Design & Cognitive Psychology Protocol
+
+## 1. Core Psychological Laws (Interface Execution)
+
+- **Hick's Law (Decision Fatigue):** Minimize the time it takes for users to complete an action. 
+  - Never throw massive walls of options or configuration fields at the user at once. 
+  - Break complex user multi-step tasks (like creating restriction profiles or custom schedules) into logical **Progressive Disclosure** blocks or clean wizard sequences.
+- **Miller's Law (Working Memory Capacity):** The human mind natively retains only $7 \pm 2$ items in active working memory.
+  - Chunk high-density analytical dashboard layouts, tables, or history logs into tight visual blocks of 3 to 5 clear groups. Use spatial padding and borders (`Law of Common Region`) to group data visually.
+- **Fitts's Law (Target Accessibility):** The time to hit a target depends on its size and distance.
+  - All critical interactive elements (such as emergency control buttons or mobile state switches) must possess a generous, clean touch/click target grid area (minimum 44x44px). 
+  - Use relative positioning to place related actions (e.g., Save/Cancel) close to the natural flow of focus.
+- **Jakob's Law (Familiar Design Patterns):** Users spend most of their time on *other* apps. 
+  - Adhere to intuitive, universal layout paradigms (e.g., standard profile navigation menus, explicit switch toggles, predictable settings trees). Do not reinvent baseline interaction controls unless explicitly requested.
+
+## 2. Temporal & System Perception
+
+- **The Doherty Threshold (<400ms):** Computer-to-human interaction pace must stay under 400ms to maintain a sense of instantaneous response.
+  - If a network request, tracking state synchronization, or disk write threatens to slip past 400ms, immediately implement **Optimistic UI updates** (advance the layout instantly) or deploy responsive skeleton loader animations.
+- **The Peak-End Rule:** Users evaluate an overall experience based heavily on its emotional peaks and how it ends.
+  - Dedicate specific visual attention to high-friction operational moments (e.g., empty landing states, successful configuration finishes, and initial setup steps) to keep the app experience feeling premium and rewarding.
+
+## 3. Frontend Code Construction Constraints
+
+- **Postel's Law (Robustness Principle):** Be conservative in what you send, liberal in what you accept.
+  - All frontend data input forms must gracefully handle messy human string text entry (e.g., strip random blank whitespaces, auto-format raw number inputs) and process validations through unified schemas before transferring it upstream.
+- **Semantic DOM Structures:** Always prioritize valid, semantic HTML over generic nested divider elements (`div` soup) to maintain clean accessibility.
+- **Color & State Redundancy:** Never convey critical application system states (e.g., Blocked vs. Unlocked) exclusively through color adjustments. Always supplement the visual layout with unmistakable structural indicators, distinct iconography, or definitive descriptive text.

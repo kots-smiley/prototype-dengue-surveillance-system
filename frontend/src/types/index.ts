@@ -206,3 +206,44 @@ export interface BarangayCaseData {
   caseCount: number;
   population: number;
 }
+
+export interface PredictionModelInfo {
+  name: string;
+  trainedOnMonths: number;
+  seasonal: boolean;
+}
+
+export interface PredictionPoint {
+  label: string;
+  cases: number;
+}
+
+export interface ForecastPoint extends PredictionPoint {
+  lower: number;
+  upper: number;
+}
+
+export interface PredictionSummary {
+  nextMonthCases: number;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  thresholdBreach: boolean;
+  caseThreshold: number | null;
+}
+
+export interface PredictionResult {
+  model: PredictionModelInfo;
+  historical: PredictionPoint[];
+  forecast: ForecastPoint[];
+  summary: PredictionSummary;
+  disclaimer: string;
+}
+
+export interface BarangayForecast {
+  id: string;
+  name: string;
+  predictedCases: number;
+  lower: number;
+  upper: number;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+}

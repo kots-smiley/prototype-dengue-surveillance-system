@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   BarChart,
   Bar,
   LineChart,
   Line,
+  AreaChart,
+  Area,
   PieChart,
   Pie,
   Cell,
@@ -18,11 +20,14 @@ import { PageHeader } from '../components/common/PageHeader';
 import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { Badge } from '../components/ui/Badge';
+import { StatCard } from '../components/domain/StatCard';
 import { DiseaseFilter } from '../components/domain/DiseaseFilter';
 import { Select } from '../components/ui/Select';
 import { useApiResource } from '../hooks/useApiResource';
 import { dashboardService } from '../services/dashboard-service';
 import { diseaseService } from '../services/disease-service';
+import { predictionService } from '../services/prediction-service';
+import { BarangayForecast } from '../types';
 
 const FALLBACK_COLORS = ['#0ea5e9', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'];
 
@@ -32,61 +37,96 @@ function riskTone(score: number): { label: string; tone: 'success' | 'warning' |
   return { label: 'LOW', tone: 'success' };
 }
 
+function forecastRiskTone(level: BarangayForecast['riskLevel']): 'success' | 'warning' | 'danger' {
+  if (level === 'HIGH') return 'danger';
+  if (level === 'MEDIUM') return 'warning';
+  return 'success';
+}
+
+function trendLabel(trend: 'increasing' | 'decreasing' | 'stable'): string {
+  switch (trend) {
+    case 'increasing':
+      return '↑ Increasing';
+    case 'decreasing':
+      return '↓ Decreasing';
+    default:
+      return '→ Stable';
+  }
+}
+
+function trendTone(trend: 'increasing' | 'decreasing' | 'stable'): 'danger' | 'success' | 'default' {
+  switch (trend) {
+    case 'increasing':
+      return 'danger';
+    case 'decreasing':
+      return 'success';
+    default:
+      return 'default';
+  }
+}
+
 export default function Analytics() {
   const [diseaseId, setDiseaseId] = useState('');
   const [months, setMonths] = useState(24);
 
   const { data: diseasesData } = useApiResource(() => diseaseService.list({ isActive: 'true' }), []);
-  const { data, loading } = useApiResource(
+  const { data, loading, refreshing } = useApiResource(
     () =>
       Promise.all([
         dashboardService.trends({ diseaseId: diseaseId || undefined, months }),
         dashboardService.rankings({ diseaseId: diseaseId || undefined, limit: 10 }),
         dashboardService.diseaseBreakdown(),
+        predictionService.getPredictions({
+          diseaseId: diseaseId || undefined,
+          months,
+          horizon: 3,
+        }),
+        predictionService.getBarangayPredictions({
+          diseaseId: diseaseId || undefined,
+          limit: 10,
+        }),
       ]),
     [diseaseId, months],
     { errorMessage: 'Failed to load analytics' }
   );
 
+  const chartData = useMemo(() => {
+    if (!data) return [];
+    const predictions = data[3].data;
+    const historical = predictions.historical.map((h) => ({
+      label: h.label,
+      actual: h.cases,
+      forecast: null as number | null,
+      lowerBand: null as number | null,
+      upperBand: null as number | null,
+    }));
+    const forecast = predictions.forecast.map((f) => ({
+      label: f.label,
+      actual: null as number | null,
+      forecast: f.cases,
+      lowerBand: f.lower,
+      upperBand: f.upper,
+    }));
+    return [...historical, ...forecast];
+  }, [data]);
+
   if (loading || !data) {
-    return <Spinner label="Loading analytics..." />;
+    return <Spinner label="Running predictive analysis..." />;
   }
 
-  const [trendsRes, rankingsRes, breakdownRes] = data;
+  const [trendsRes, rankingsRes, breakdownRes, predictionsRes, barangayPredRes] = data;
   const trends = trendsRes.data.trends;
   const rankings = rankingsRes.data.rankings;
   const breakdown = breakdownRes.data.breakdown;
+  const predictions = predictionsRes.data;
+  const barangayForecasts = barangayPredRes.data.barangays;
   const diseases = diseasesData?.data.diseases ?? [];
-
-  // Simple linear-regression projection for the next 3 months (rule-based, not ML).
-  const projection = (() => {
-    const y = trends.map((t) => t.cases);
-    const n = y.length;
-    if (n < 3) return [];
-    const x = y.map((_, i) => i);
-    const sumX = x.reduce((a, b) => a + b, 0);
-    const sumY = y.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((s, xi, i) => s + xi * y[i], 0);
-    const sumXX = x.reduce((s, xi) => s + xi * xi, 0);
-    const denom = n * sumXX - sumX * sumX;
-    const slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
-    const intercept = (sumY - slope * sumX) / n;
-    return Array.from({ length: 3 }, (_, i) => {
-      const predicted = Math.max(0, Math.round(slope * (n + i) + intercept));
-      return { month: `Forecast +${i + 1}`, cases: predicted, projected: true };
-    });
-  })();
-
-  const combinedTrend = [
-    ...trends.map((t) => ({ month: t.month, cases: t.cases, projected: false })),
-    ...projection,
-  ];
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Analytics"
-        subtitle="Trends, rankings, and rule-based projections"
+        subtitle="Trends, ML forecasts, and barangay risk rankings"
         actions={
           <Select
             className="max-w-[12rem]"
@@ -107,12 +147,107 @@ export default function Analytics() {
         </div>
       </Card>
 
-      <Card title="Case trend and projection">
-        <p className="mb-4 text-sm text-slate-600">
-          Dashed forecast uses simple linear regression on historical counts (rule-based, not AI/ML).
-        </p>
-        <ResponsiveContainer width="100%" height={320}>
-          <LineChart data={combinedTrend} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
+      {refreshing && (
+        <p className="text-xs font-medium text-slate-500">Refreshing predictions...</p>
+      )}
+
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="font-medium">Predictive analysis disclaimer</p>
+        <p className="mt-1 text-amber-800">{predictions.disclaimer}</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Next month forecast"
+          value={predictions.summary.nextMonthCases}
+          hint={`Model: ${predictions.model.name} (${predictions.model.trainedOnMonths} mo. history)`}
+          tone="primary"
+        />
+        <StatCard
+          label="Trend direction"
+          value={trendLabel(predictions.summary.trend)}
+          hint="Based on recent history and forecast"
+          tone={trendTone(predictions.summary.trend)}
+        />
+        <StatCard
+          label="Threshold status"
+          value={
+            predictions.summary.caseThreshold != null
+              ? predictions.summary.thresholdBreach
+                ? 'May exceed threshold'
+                : 'Within threshold'
+              : 'No threshold set'
+          }
+          hint={
+            predictions.summary.caseThreshold != null
+              ? `Threshold: ${predictions.summary.caseThreshold} cases/month`
+              : 'Select a disease to compare'
+          }
+          tone={predictions.summary.thresholdBreach ? 'danger' : 'success'}
+        />
+        <StatCard
+          label="Seasonal model"
+          value={predictions.model.seasonal ? 'Enabled (S=12)' : 'Not applied'}
+          hint={
+            predictions.model.name === 'LinearRegression'
+              ? 'Fallback used — insufficient history for AutoARIMA'
+              : 'AutoARIMA time-series model'
+          }
+        />
+      </div>
+
+      <Card title="ML case forecast" subtitle="Historical counts plus 3-month AutoARIMA projection with confidence bands.">
+        <ResponsiveContainer width="100%" height={340}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 50 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="label" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Legend />
+            <Area
+              type="monotone"
+              dataKey="upperBand"
+              name="Upper bound"
+              stroke="#93c5fd"
+              fill="#dbeafe"
+              fillOpacity={0.5}
+              connectNulls={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="lowerBand"
+              name="Lower bound"
+              stroke="#bfdbfe"
+              fill="#ffffff"
+              fillOpacity={0}
+              connectNulls={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="actual"
+              name="Actual cases"
+              stroke="#0ea5e9"
+              strokeWidth={2}
+              connectNulls={false}
+              dot={{ r: 3 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="forecast"
+              name="Forecast"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              connectNulls={false}
+              dot={{ r: 3 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card title="Monthly historical trend" subtitle="Raw monthly case counts used to train the model.">
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={trends} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
             <YAxis allowDecimals={false} />
@@ -126,7 +261,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card title="Cases by disease">
           {breakdown.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-500">No case data yet.</p>
+            <p className="py-12 text-center text-sm text-slate-500">No case data yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
@@ -165,7 +300,51 @@ export default function Analytics() {
         </Card>
       </div>
 
-      <Card title="Top risk barangays" subtitle="Risk state includes text labels and color-coded badges.">
+      <Card
+        title="Barangay forecast (next month)"
+        subtitle="ML-predicted case counts per barangay, ranked by expected burden."
+      >
+        <div className="table-shell">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="table-head">
+              <tr>
+                <th className="table-head-cell">#</th>
+                <th className="table-head-cell">Barangay</th>
+                <th className="table-head-cell">Predicted cases</th>
+                <th className="table-head-cell">Range</th>
+                <th className="table-head-cell">Trend</th>
+                <th className="table-head-cell">Risk</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {barangayForecasts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="table-cell text-center text-slate-500">
+                    No barangay forecast data available.
+                  </td>
+                </tr>
+              ) : (
+                barangayForecasts.map((b, idx) => (
+                  <tr key={b.id} className="hover:bg-slate-50">
+                    <td className="table-cell">{idx + 1}</td>
+                    <td className="table-cell font-semibold text-slate-900">{b.name}</td>
+                    <td className="table-cell">{b.predictedCases}</td>
+                    <td className="table-cell text-sm text-slate-600">
+                      {b.lower} – {b.upper}
+                    </td>
+                    <td className="table-cell">{trendLabel(b.trend)}</td>
+                    <td className="table-cell">
+                      <Badge tone={forecastRiskTone(b.riskLevel)}>{b.riskLevel}</Badge>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card title="Top risk barangays (historical)" subtitle="Current-year risk score from cases, reports, and alerts.">
         <div className="table-shell">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="table-head">

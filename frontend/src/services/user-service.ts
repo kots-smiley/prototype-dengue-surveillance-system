@@ -8,6 +8,9 @@ export interface CreateUserPayload {
   lastName: string;
   role: string;
   barangayId?: string;
+  facilityId?: string;
+  licenseNo?: string;
+  providerType?: string;
   isActive?: boolean;
 }
 
@@ -17,6 +20,9 @@ export interface UpdateUserPayload {
   lastName?: string;
   role?: string;
   barangayId?: string;
+  facilityId?: string;
+  licenseNo?: string;
+  providerType?: string;
   isActive?: boolean;
 }
 

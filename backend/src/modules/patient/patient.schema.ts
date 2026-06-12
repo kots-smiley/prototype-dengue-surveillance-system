@@ -3,6 +3,12 @@ import { z } from 'zod';
 const sexEnum = z.enum(['MALE', 'FEMALE']);
 const civilStatusEnum = z.enum(['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED', 'OTHER']);
 
+const identifierSchema = z.object({
+  system: z.enum(['PHILHEALTH', 'PHILSYS', 'LOCAL', 'OTHER']),
+  value: z.string().min(1),
+  use: z.enum(['OFFICIAL', 'SECONDARY']).optional(),
+});
+
 export const createPatientSchema = z.object({
   firstName: z.string().min(1),
   middleName: z.string().optional(),
@@ -13,6 +19,8 @@ export const createPatientSchema = z.object({
   contactNumber: z.string().optional(),
   address: z.string().optional(),
   barangayId: z.string().optional(),
+  homeFacilityId: z.string().optional(),
+  identifiers: z.array(identifierSchema).optional().default([]),
   philhealthNo: z.string().optional(),
   bloodType: z.string().optional(),
   consentGiven: z.boolean().optional().default(false),
@@ -26,6 +34,7 @@ export const updatePatientSchema = createPatientSchema.partial().extend({
 export const listPatientQuerySchema = z.object({
   search: z.string().optional(),
   barangayId: z.string().optional(),
+  facilityId: z.string().optional(),
   isActive: z.string().optional(),
   page: z.string().optional(),
   limit: z.string().optional(),

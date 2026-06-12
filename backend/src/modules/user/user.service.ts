@@ -9,6 +9,7 @@ export const userService = {
     const where: Prisma.UserWhereInput = {};
     if (query.role) where.role = query.role;
     if (query.barangayId) where.barangayId = query.barangayId;
+    if (query.facilityId) where.facilityId = query.facilityId;
     if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
     return userRepository.findMany(where);
   },
@@ -34,8 +35,11 @@ export const userService = {
       firstName: input.firstName,
       lastName: input.lastName,
       role: input.role,
+      licenseNo: input.licenseNo,
+      providerType: input.providerType,
       isActive: input.isActive ?? true,
       ...(input.barangayId ? { barangay: { connect: { id: input.barangayId } } } : {}),
+      ...(input.facilityId ? { facility: { connect: { id: input.facilityId } } } : {}),
     });
   },
 
@@ -52,9 +56,14 @@ export const userService = {
       }
     }
 
-    const { barangayId, ...rest } = input;
+    const { barangayId, facilityId, ...rest } = input;
     const data: Prisma.UserUpdateInput = { ...rest };
-    if (barangayId) data.barangay = { connect: { id: barangayId } };
+    if (barangayId !== undefined) {
+      data.barangay = barangayId ? { connect: { id: barangayId } } : { disconnect: true };
+    }
+    if (facilityId !== undefined) {
+      data.facility = facilityId ? { connect: { id: facilityId } } : { disconnect: true };
+    }
 
     return userRepository.update(id, data);
   },

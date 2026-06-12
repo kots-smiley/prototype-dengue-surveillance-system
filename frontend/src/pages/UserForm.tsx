@@ -13,7 +13,8 @@ import { Checkbox } from '../components/ui/Checkbox';
 import { Spinner } from '../components/ui/Spinner';
 import { userService } from '../services/user-service';
 import { barangayService } from '../services/barangay-service';
-import { Barangay } from '../types';
+import { facilityService } from '../services/facility-service';
+import { Barangay, Facility } from '../types';
 import { ApiError } from '../utils/api-client';
 import { USER_ROLE_OPTIONS } from '../configuration/options';
 
@@ -22,8 +23,11 @@ const userSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  role: z.enum(['ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT', 'PHYSICIAN', 'NURSE', 'MIDWIFE']),
+  role: z.enum(['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT', 'PHYSICIAN', 'NURSE', 'MIDWIFE']),
   barangayId: z.string().optional(),
+  facilityId: z.string().optional(),
+  licenseNo: z.string().optional(),
+  providerType: z.string().optional(),
   isActive: z.boolean(),
 });
 
@@ -33,6 +37,7 @@ export default function UserForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,8 +58,12 @@ export default function UserForm() {
   useEffect(() => {
     const load = async () => {
       try {
-        const barangaysRes = await barangayService.list();
+        const [barangaysRes, facilitiesRes] = await Promise.all([
+          barangayService.list(),
+          facilityService.list({ isActive: 'true' }),
+        ]);
         setBarangays(barangaysRes.data.barangays);
+        setFacilities(facilitiesRes.data.facilities);
 
         if (id) {
           const userRes = await userService.getById(id);
@@ -66,6 +75,9 @@ export default function UserForm() {
             lastName: u.lastName,
             role: u.role,
             barangayId: u.barangayId ?? '',
+            facilityId: u.facilityId ?? '',
+            licenseNo: u.licenseNo ?? '',
+            providerType: u.providerType ?? '',
             isActive: u.isActive,
           });
         }
@@ -92,6 +104,9 @@ export default function UserForm() {
         lastName: data.lastName.trim(),
         role: data.role,
         barangayId: data.barangayId || undefined,
+        facilityId: data.facilityId || undefined,
+        licenseNo: data.licenseNo?.trim() || undefined,
+        providerType: data.providerType?.trim() || undefined,
         isActive: data.isActive,
       };
 
@@ -163,6 +178,19 @@ export default function UserForm() {
             {selectedRole === 'BHW' && !selectedBarangay && (
               <p className="text-sm text-yellow-600">BHW users should be assigned to a barangay.</p>
             )}
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Select label="Facility" {...register('facilityId')}>
+                <option value="">Not assigned</option>
+                {facilities.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </Select>
+              <Input label="PRC license no." {...register('licenseNo')} />
+              <Input label="Provider type" placeholder="e.g. Physician" {...register('providerType')} />
+            </div>
           </Card>
 
           <Card title="4) Account state" className="border border-slate-100 shadow-none">

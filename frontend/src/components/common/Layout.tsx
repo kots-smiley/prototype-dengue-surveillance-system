@@ -20,6 +20,10 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Building2,
+  Share2,
+  ArrowLeftRight,
+  HeartPulse,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -34,21 +38,25 @@ interface NavItem {
   roles: UserRole[];
 }
 
-const ALL: UserRole[] = ['ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT', 'PHYSICIAN', 'NURSE', 'MIDWIFE'];
-const CLINICAL: UserRole[] = ['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE'];
+const ALL: UserRole[] = ['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT', 'PHYSICIAN', 'NURSE', 'MIDWIFE'];
+const CLINICAL: UserRole[] = ['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE'];
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'PHYSICIAN', 'NURSE', 'MIDWIFE'] },
   { to: '/patients', label: 'Patients', icon: Users, roles: CLINICAL },
-  { to: '/cases', label: 'Cases', icon: ClipboardList, roles: ['ADMIN', 'BHW', 'HOSPITAL_ENCODER'] },
-  { to: '/reports', label: 'Risk Reports', icon: Droplets, roles: ['ADMIN', 'BHW', 'RESIDENT'] },
-  { to: '/alerts', label: 'Alerts', icon: AlertTriangle, roles: ['ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT', 'PHYSICIAN', 'NURSE', 'MIDWIFE'] },
-  { to: '/feedback', label: 'Feedback', icon: MessageSquare, roles: ['ADMIN', 'BHW'] },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['ADMIN', 'BHW', 'HOSPITAL_ENCODER'] },
-  { to: '/diseases', label: 'Diseases', icon: Activity, roles: ['ADMIN'] },
+  { to: '/referrals', label: 'Referrals', icon: ArrowLeftRight, roles: CLINICAL },
+  { to: '/hie', label: 'Health Exchange', icon: Share2, roles: CLINICAL },
+  { to: '/cases', label: 'Cases', icon: ClipboardList, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW', 'HOSPITAL_ENCODER'] },
+  { to: '/reports', label: 'Risk Reports', icon: Droplets, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW', 'RESIDENT'] },
+  { to: '/alerts', label: 'Alerts', icon: AlertTriangle, roles: ALL },
+  { to: '/portal', label: 'My Record', icon: HeartPulse, roles: ['RESIDENT'] },
+  { to: '/feedback', label: 'Feedback', icon: MessageSquare, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW'] },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW', 'HOSPITAL_ENCODER'] },
+  { to: '/facilities', label: 'Facilities', icon: Building2, roles: ['ADMIN', 'HEALTH_OFFICER'] },
+  { to: '/diseases', label: 'Diseases', icon: Activity, roles: ['ADMIN', 'HEALTH_OFFICER'] },
   { to: '/barangays', label: 'Barangays', icon: MapPin, roles: ['ADMIN'] },
   { to: '/users', label: 'Users', icon: UserCog, roles: ['ADMIN'] },
-  { to: '/exports', label: 'Exports', icon: Download, roles: ['ADMIN', 'BHW'] },
+  { to: '/exports', label: 'Exports', icon: Download, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW'] },
 ];
 
 export function Layout() {

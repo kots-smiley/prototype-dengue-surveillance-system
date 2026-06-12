@@ -1,7 +1,21 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import {
+  ICD10_REFERENCE,
+  LOINC_REFERENCE,
+  SNOMED_REFERENCE,
+} from '../src/configuration/constants';
 
 const prisma = new PrismaClient();
+
+// Health facilities across the Municipality of Lopez (cross-facility EHR).
+const FACILITIES = [
+  { code: 'LPZ-RHU', name: 'Lopez Rural Health Unit (Main)', type: 'RHU_MAIN' },
+  { code: 'LPZ-MH', name: 'Lopez Municipal Hospital', type: 'MUNICIPAL_HOSPITAL' },
+  { code: 'BHS-BYB', name: 'Bayabas Barangay Health Station', type: 'BARANGAY_HEALTH_STATION' },
+  { code: 'BHS-BRG', name: 'Burgos Barangay Health Station', type: 'BARANGAY_HEALTH_STATION' },
+  { code: 'BHS-SNI', name: 'San Isidro Barangay Health Station', type: 'BARANGAY_HEALTH_STATION' },
+];
 
 // --- Reference data ---------------------------------------------------------
 
@@ -185,6 +199,22 @@ async function seedUsers() {
       firstName: 'Ana',
       lastName: 'Cruz, RM',
       role: 'MIDWIFE',
+      barangayId: null,
+    },
+    {
+      email: 'mho@healthwatch.local',
+      password: 'mho123',
+      firstName: 'Municipal',
+      lastName: 'Health Officer',
+      role: 'HEALTH_OFFICER',
+      barangayId: null,
+    },
+    {
+      email: 'resident@healthwatch.local',
+      password: 'resident123',
+      firstName: 'Juan',
+      lastName: 'Dela Cruz',
+      role: 'RESIDENT',
       barangayId: null,
     },
   ];
@@ -428,20 +458,125 @@ async function seedEmr() {
   console.log(`Seeded ${samplePatients.length} EMR patients with encounters and program records.`);
 }
 
+async function seedFacilities() {
+  const barangayByCode = new Map(
+    (await prisma.barangay.findMany()).map((b) => [b.code, b.id])
+  );
+  const facilityBarangay: Record<string, string | undefined> = {
+    'BHS-BYB': 'LPZ-BYB',
+    'BHS-BRG': 'LPZ-BRG',
+    'BHS-SNI': 'LPZ-SNI',
+  };
+
+  for (const f of FACILITIES) {
+    const barangayId = facilityBarangay[f.code]
+      ? barangayByCode.get(facilityBarangay[f.code] as string)
+      : undefined;
+    await prisma.facility.upsert({
+      where: { code: f.code },
+      update: { name: f.name, type: f.type, barangayId: barangayId ?? null, isActive: true },
+      create: { code: f.code, name: f.name, type: f.type, barangayId: barangayId ?? null, isActive: true },
+    });
+  }
+  console.log(`Seeded ${FACILITIES.length} facilities.`);
+}
+
+async function seedTerminology() {
+  const concepts = [
+    ...ICD10_REFERENCE.map((c) => ({ system: 'ICD10', code: c.code, display: c.description, diseaseCode: c.diseaseCode })),
+    ...LOINC_REFERENCE.map((c) => ({ system: 'LOINC', code: c.code, display: c.display })),
+    ...SNOMED_REFERENCE.map((c) => ({ system: 'SNOMED', code: c.code, display: c.display })),
+  ];
+  for (const c of concepts) {
+    await prisma.terminologyConcept.upsert({
+      where: { system_code: { system: c.system, code: c.code } },
+      update: { display: c.display, diseaseCode: c.diseaseCode ?? null },
+      create: { system: c.system, code: c.code, display: c.display, diseaseCode: c.diseaseCode ?? null },
+    });
+  }
+  console.log(`Seeded ${concepts.length} terminology concepts.`);
+}
+
+/**
+ * Wire the EHR layer together: assign providers/patients/encounters to the RHU
+ * main facility, link the resident portal account, and create a sample
+ * cross-facility referral and a sharing consent.
+ */
+async function seedEhrLinks() {
+  const rhu = await prisma.facility.findUnique({ where: { code: 'LPZ-RHU' } });
+  const hospital = await prisma.facility.findUnique({ where: { code: 'LPZ-MH' } });
+  if (!rhu || !hospital) return;
+
+  // Assign clinical staff without a facility to the RHU main.
+  await prisma.user.updateMany({
+    where: { role: { in: ['PHYSICIAN', 'NURSE', 'MIDWIFE', 'FACILITY_ADMIN'] }, facilityId: null },
+    data: { facilityId: rhu.id },
+  });
+
+  // Backfill home facility on patients and facility on encounters/cases.
+  await prisma.patient.updateMany({ where: { homeFacilityId: null }, data: { homeFacilityId: rhu.id } });
+  await prisma.encounter.updateMany({ where: { facilityId: null }, data: { facilityId: rhu.id } });
+  await prisma.case.updateMany({ where: { facilityId: null }, data: { facilityId: rhu.id } });
+
+  // Link the resident portal account to the first patient.
+  const resident = await prisma.user.findUnique({ where: { email: 'resident@healthwatch.local' } });
+  const firstPatient = await prisma.patient.findFirst({ orderBy: { patientCode: 'asc' } });
+  if (resident && firstPatient && !firstPatient.userId) {
+    await prisma.patient.update({ where: { id: firstPatient.id }, data: { userId: resident.id } });
+    if (firstPatient.identifiers.length === 0) {
+      await prisma.patient.update({
+        where: { id: firstPatient.id },
+        data: { identifiers: [{ system: 'PHILHEALTH', value: '12-345678901-2', use: 'OFFICIAL' }] },
+      });
+    }
+  }
+
+  // Sample sharing consent + cross-facility referral (only if none exist).
+  if (firstPatient) {
+    const consentCount = await prisma.consent.count();
+    if (consentCount === 0) {
+      await prisma.consent.create({
+        data: { patientId: firstPatient.id, purpose: 'TREATMENT', scope: 'SUMMARY', status: 'ACTIVE' },
+      });
+    }
+    const referralCount = await prisma.referral.count();
+    if (referralCount === 0) {
+      await prisma.referral.create({
+        data: {
+          patientId: firstPatient.id,
+          fromFacilityId: rhu.id,
+          toFacilityId: hospital.id,
+          reason: 'For further evaluation and platelet monitoring (dengue with warning signs).',
+          clinicalSummary: 'Confirmed dengue. Stable vitals. Requires CBC monitoring and possible admission.',
+          priority: 'URGENT',
+          status: 'REQUESTED',
+        },
+      });
+    }
+  }
+
+  console.log('Linked EHR facilities, portal account, consent, and referral.');
+}
+
 async function main() {
   console.log('Seeding HealthWatch database...');
   await seedBarangays();
   await seedDiseases();
+  await seedFacilities();
+  await seedTerminology();
   await seedUsers();
   await seedSampleData();
   await seedEmr();
+  await seedEhrLinks();
   console.log('\nDefault login credentials:');
   console.log('  Admin:     admin@healthwatch.local / admin123');
+  console.log('  MHO:       mho@healthwatch.local / mho123');
   console.log('  BHW:       bhw@healthwatch.local / bhw123');
   console.log('  Hospital:  hospital@healthwatch.local / hospital123');
   console.log('  Physician: physician@healthwatch.local / physician123');
   console.log('  Nurse:     nurse@healthwatch.local / nurse123');
   console.log('  Midwife:   midwife@healthwatch.local / midwife123');
+  console.log('  Resident:  resident@healthwatch.local / resident123');
   console.log('\nSeeding complete.');
 }
 

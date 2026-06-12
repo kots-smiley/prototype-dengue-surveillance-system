@@ -17,6 +17,14 @@ import immunizationRouter from './modules/immunization/immunization.router';
 import maternalRouter from './modules/maternal/maternal.router';
 import labRouter from './modules/lab/lab.router';
 import clinicalRouter from './modules/clinical/clinical.router';
+import facilityRouter from './modules/facility/facility.router';
+import referralRouter from './modules/referral/referral.router';
+import consentRouter from './modules/consent/consent.router';
+import documentRouter from './modules/document/document.router';
+import terminologyRouter from './modules/terminology/terminology.router';
+import fhirRouter from './modules/fhir/fhir.router';
+import hieRouter from './modules/hie/hie.router';
+import portalRouter from './modules/portal/portal.router';
 
 const router = Router();
 
@@ -42,5 +50,13 @@ router.use('/immunizations', immunizationRouter);
 router.use('/maternal', maternalRouter);
 router.use('/labs', labRouter);
 router.use('/clinical', clinicalRouter);
+router.use('/facilities', facilityRouter);
+router.use('/referrals', referralRouter);
+router.use('/consents', consentRouter);
+router.use('/documents', documentRouter);
+router.use('/terminology', terminologyRouter);
+router.use('/fhir', fhirRouter);
+router.use('/hie', hieRouter);
+router.use('/portal', portalRouter);
 
 export default router;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import toast from 'react-hot-toast';
 import { PageHeader } from '../components/common/PageHeader';
@@ -19,10 +19,13 @@ import {
   problemService,
 } from '../services/emr-program-service';
 import { ageFromBirthDate, formatDate, fullName, humanize } from '../utils/formatters';
-import { ALLERGY_SEVERITY_OPTIONS } from '../configuration/options';
-import { Encounter, Patient } from '../types';
+import { ALLERGY_SEVERITY_OPTIONS, DOCUMENT_TYPE_OPTIONS, REFERRAL_PRIORITY_OPTIONS } from '../configuration/options';
+import { Encounter, Patient, Facility } from '../types';
+import { facilityService } from '../services/facility-service';
+import { referralService, consentService, documentService, fhirService } from '../services/ehr-service';
+import { downloadJson } from '../utils/download-json';
 
-type Tab = 'encounters' | 'conditions' | 'immunizations' | 'maternal' | 'labs';
+type Tab = 'encounters' | 'conditions' | 'immunizations' | 'maternal' | 'labs' | 'referrals' | 'consent' | 'documents';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'encounters', label: 'Encounters' },
@@ -30,6 +33,9 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'immunizations', label: 'Immunizations' },
   { id: 'maternal', label: 'Maternal' },
   { id: 'labs', label: 'Laboratory' },
+  { id: 'referrals', label: 'Referrals' },
+  { id: 'consent', label: 'Consent' },
+  { id: 'documents', label: 'Documents' },
 ];
 
 export default function PatientDetail() {
@@ -69,6 +75,34 @@ export default function PatientDetail() {
             <Link to={`/patients/${id}/encounters/new`}>
               <Button>New Encounter</Button>
             </Link>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  const ips = await fhirService.summary(id);
+                  downloadJson(ips, `IPS-${patient.patientCode}.json`);
+                  toast.success('International Patient Summary exported');
+                } catch {
+                  toast.error('Failed to export IPS');
+                }
+              }}
+            >
+              Export IPS
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  const bundle = await fhirService.everything(id);
+                  downloadJson(bundle, `FHIR-${patient.patientCode}.json`);
+                  toast.success('FHIR bundle exported');
+                } catch {
+                  toast.error('Failed to export FHIR');
+                }
+              }}
+            >
+              Export FHIR
+            </Button>
             <Link to={`/patients/${id}/edit`}>
               <Button variant="secondary">Edit</Button>
             </Link>
@@ -77,6 +111,7 @@ export default function PatientDetail() {
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <SummaryItem label="Home facility" value={patient.homeFacility?.name ?? 'N/A'} />
         <SummaryItem label="Barangay" value={patient.barangay?.name ?? 'N/A'} />
         <SummaryItem label="Blood type" value={patient.bloodType ?? 'Unknown'} />
         <SummaryItem label="PhilHealth" value={patient.philhealthNo ?? 'N/A'} />
@@ -102,7 +137,9 @@ export default function PatientDetail() {
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
-              tab === t.id ? 'bg-primary-50 text-primary-700' : 'text-slate-700 hover:bg-slate-100'
+              tab === t.id
+                ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-300'
+                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
             }`}
           >
             {t.label}
@@ -115,6 +152,9 @@ export default function PatientDetail() {
       {tab === 'immunizations' && <ImmunizationsTab patient={patient} onChange={refetch} />}
       {tab === 'maternal' && <MaternalTab patient={patient} onChange={refetch} />}
       {tab === 'labs' && <LabsTab patient={patient} onChange={refetch} />}
+      {tab === 'referrals' && <ReferralsTab patient={patient} onChange={refetch} />}
+      {tab === 'consent' && <ConsentTab patient={patient} onChange={refetch} />}
+      {tab === 'documents' && <DocumentsTab patient={patient} onChange={refetch} />}
 
       <div className="flex justify-end">
         <Button variant="danger" onClick={() => setArchiveOpen(true)}>
@@ -177,9 +217,11 @@ function EncountersTab({ encounters, patientId }: { encounters: Encounter[]; pat
       {encounters.map((e) => (
         <Card key={e.id} title={`${humanize(e.type)} · ${formatDate(e.encounterDate)}`}>
           <div className="space-y-3 text-sm">
-            {e.clinician && (
+            {(e.facility || e.clinician) && (
               <p className="text-xs text-slate-500">
-                Clinician: {e.clinician.firstName} {e.clinician.lastName} ({humanize(e.clinician.role)})
+                {e.facility ? `${e.facility.name}` : ''}
+                {e.facility && e.clinician ? ' · ' : ''}
+                {e.clinician ? `${e.clinician.firstName} ${e.clinician.lastName} (${humanize(e.clinician.role)})` : ''}
               </p>
             )}
             {e.chiefComplaint && (
@@ -522,6 +564,187 @@ function LabsTab({ patient, onChange }: { patient: Patient; onChange: () => void
                 {l.testName}: <span className="font-semibold">{l.value ?? '—'}</span> {l.unit ?? ''} · {formatDate(l.resultDate)}
               </span>
               <button onClick={() => remove(l.id)} className="text-red-600 hover:text-red-800">
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function ReferralsTab({ patient, onChange }: { patient: Patient; onChange: () => void }) {
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [toFacilityId, setToFacilityId] = useState('');
+  const [reason, setReason] = useState('');
+  const [priority, setPriority] = useState('ROUTINE');
+
+  useEffect(() => {
+    facilityService
+      .list({ isActive: 'true' })
+      .then((res) => setFacilities(res.data.facilities))
+      .catch(() => undefined);
+  }, []);
+
+  const create = async () => {
+    if (!toFacilityId || !reason.trim()) {
+      toast.error('Receiving facility and reason are required');
+      return;
+    }
+    try {
+      await referralService.create({ patientId: patient.id, toFacilityId, reason: reason.trim(), priority });
+      setToFacilityId('');
+      setReason('');
+      onChange();
+      toast.success('Referral created');
+    } catch {
+      toast.error('Failed to create referral');
+    }
+  };
+
+  return (
+    <Card title="Referrals" subtitle="Refer this patient to another facility (continuity of care).">
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr,1fr,auto,auto]">
+        <Select value={toFacilityId} onChange={(e) => setToFacilityId(e.target.value)}>
+          <option value="">Receiving facility…</option>
+          {facilities.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </Select>
+        <Input placeholder="Reason for referral" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Select value={priority} onChange={(e) => setPriority(e.target.value)}>
+          {REFERRAL_PRIORITY_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+        <Button onClick={create}>Refer</Button>
+      </div>
+      {(patient.referrals?.length ?? 0) === 0 ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">No referrals for this patient.</p>
+      ) : (
+        <ul className="space-y-2">
+          {patient.referrals!.map((r) => (
+            <li key={r.id} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+              {r.fromFacility?.name ?? '—'} → {r.toFacility?.name ?? '—'} ·{' '}
+              <span className={`badge ${r.status === 'COMPLETED' ? 'badge-success' : r.status === 'REJECTED' ? 'badge-danger' : 'badge-info'}`}>
+                {humanize(r.status)}
+              </span>
+              <span className="ml-2 text-slate-600 dark:text-slate-400">{r.reason}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function ConsentTab({ patient, onChange }: { patient: Patient; onChange: () => void }) {
+  const grant = async () => {
+    try {
+      await consentService.create({ patientId: patient.id, purpose: 'TREATMENT', scope: 'SUMMARY' });
+      onChange();
+      toast.success('Consent recorded for all network facilities');
+    } catch {
+      toast.error('Failed to record consent');
+    }
+  };
+
+  const revoke = async (consentId: string) => {
+    try {
+      await consentService.revoke(consentId);
+      onChange();
+    } catch {
+      toast.error('Failed to revoke consent');
+    }
+  };
+
+  return (
+    <Card
+      title="Sharing consent"
+      subtitle="Consent directives govern cross-facility access in the HIE (ISO 22600 / RA 10173)."
+      actions={<Button onClick={grant}>Grant (all facilities)</Button>}
+    >
+      {(patient.consents?.length ?? 0) === 0 ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          No sharing consent on file. Other facilities cannot view this record except via audited break-glass.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {patient.consents!.map((c) => (
+            <li key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+              <span>
+                {c.grantedToFacility?.name ?? 'All facilities'} · {humanize(c.purpose)} · {humanize(c.scope)} ·{' '}
+                <span className={`badge ${c.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}>{humanize(c.status)}</span>
+              </span>
+              {c.status === 'ACTIVE' && (
+                <button onClick={() => revoke(c.id)} className="text-red-600 hover:text-red-800">
+                  Revoke
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function DocumentsTab({ patient, onChange }: { patient: Patient; onChange: () => void }) {
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('OTHER');
+  const [content, setContent] = useState('');
+
+  const add = async () => {
+    if (!title.trim()) return;
+    try {
+      await documentService.create({ patientId: patient.id, title: title.trim(), type, content: content.trim() || undefined });
+      setTitle('');
+      setContent('');
+      onChange();
+      toast.success('Document added');
+    } catch {
+      toast.error('Failed to add document');
+    }
+  };
+
+  const remove = async (docId: string) => {
+    try {
+      await documentService.remove(docId);
+      onChange();
+    } catch {
+      toast.error('Failed to remove document');
+    }
+  };
+
+  return (
+    <Card title="Clinical documents">
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr,1fr,1fr,auto]">
+        <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Select value={type} onChange={(e) => setType(e.target.value)}>
+          {DOCUMENT_TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+        <Input placeholder="Notes / content" value={content} onChange={(e) => setContent(e.target.value)} />
+        <Button onClick={add}>Add</Button>
+      </div>
+      {(patient.documents?.length ?? 0) === 0 ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">No documents on file.</p>
+      ) : (
+        <ul className="space-y-2">
+          {patient.documents!.map((d) => (
+            <li key={d.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+              <span>
+                <span className="font-semibold">{d.title}</span> · {humanize(d.type)} · {formatDate(d.createdAt)}
+              </span>
+              <button onClick={() => remove(d.id)} className="text-red-600 hover:text-red-800">
                 Remove
               </button>
             </li>

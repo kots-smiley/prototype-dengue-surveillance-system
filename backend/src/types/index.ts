@@ -13,6 +13,7 @@ export interface AuthUser {
   email: string;
   role: string;
   barangayId?: string | null;
+  facilityId?: string | null;
 }
 
 /** Express request carrying the authenticated user. */

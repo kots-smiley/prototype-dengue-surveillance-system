@@ -1,5 +1,7 @@
 export type UserRole =
   | 'ADMIN'
+  | 'HEALTH_OFFICER'
+  | 'FACILITY_ADMIN'
   | 'BHW'
   | 'HOSPITAL_ENCODER'
   | 'RESIDENT'
@@ -46,8 +48,12 @@ export interface User {
   lastName: string;
   role: UserRole;
   barangayId?: string | null;
+  facilityId?: string | null;
+  licenseNo?: string | null;
+  providerType?: string | null;
   isActive: boolean;
   barangay?: Barangay | null;
+  facility?: Facility | null;
   createdAt?: string;
 }
 
@@ -264,9 +270,16 @@ export type CivilStatus = 'SINGLE' | 'MARRIED' | 'WIDOWED' | 'SEPARATED' | 'OTHE
 export type ProblemStatus = 'ACTIVE' | 'RESOLVED' | 'INACTIVE';
 export type AllergySeverity = 'MILD' | 'MODERATE' | 'SEVERE';
 
+export interface PatientIdentifier {
+  system: 'PHILHEALTH' | 'PHILSYS' | 'LOCAL' | 'OTHER';
+  value: string;
+  use?: 'OFFICIAL' | 'SECONDARY' | null;
+}
+
 export interface Patient {
   id: string;
   patientCode: string;
+  identifiers?: PatientIdentifier[];
   firstName: string;
   middleName?: string | null;
   lastName: string;
@@ -276,6 +289,8 @@ export interface Patient {
   contactNumber?: string | null;
   address?: string | null;
   barangayId?: string | null;
+  homeFacilityId?: string | null;
+  userId?: string | null;
   philhealthNo?: string | null;
   bloodType?: string | null;
   consentGiven: boolean;
@@ -286,12 +301,16 @@ export interface Patient {
   createdAt?: string;
   updatedAt?: string;
   barangay?: Barangay | null;
+  homeFacility?: Facility | null;
   encounters?: Encounter[];
   allergies?: Allergy[];
   problems?: Problem[];
   immunizations?: Immunization[];
   maternalRecords?: MaternalRecord[];
   labResults?: LabResult[];
+  referrals?: Referral[];
+  consents?: Consent[];
+  documents?: ClinicalDocument[];
   _count?: { encounters?: number };
 }
 
@@ -340,6 +359,8 @@ export interface Encounter {
   id: string;
   patientId: string;
   barangayId?: string | null;
+  facilityId?: string | null;
+  facility?: Facility | null;
   clinicianId?: string | null;
   type: EncounterType;
   encounterDate: string;
@@ -419,4 +440,85 @@ export interface Icd10Entry {
   code: string;
   description: string;
   diseaseCode?: string;
+}
+
+// ---------------------------------------------------------------------------
+// EHR (municipality-wide) types
+// ---------------------------------------------------------------------------
+export type FacilityType =
+  | 'RHU_MAIN'
+  | 'BARANGAY_HEALTH_STATION'
+  | 'MUNICIPAL_HOSPITAL'
+  | 'DISTRICT_HOSPITAL'
+  | 'PRIVATE_CLINIC'
+  | 'LABORATORY'
+  | 'PHARMACY';
+export type ReferralStatus = 'REQUESTED' | 'ACCEPTED' | 'COMPLETED' | 'REJECTED';
+export type ReferralPriority = 'ROUTINE' | 'URGENT' | 'EMERGENCY';
+export type ConsentPurpose = 'TREATMENT' | 'EMERGENCY' | 'PUBLIC_HEALTH';
+export type ConsentScope = 'SUMMARY' | 'FULL';
+export type ConsentStatus = 'ACTIVE' | 'REVOKED';
+
+export interface Facility {
+  id: string;
+  name: string;
+  code: string;
+  type: FacilityType;
+  barangayId?: string | null;
+  address?: string | null;
+  contactNumber?: string | null;
+  isActive: boolean;
+  barangay?: Barangay | null;
+  _count?: { users?: number; encounters?: number; patients?: number };
+}
+
+export interface Referral {
+  id: string;
+  patientId: string;
+  fromFacilityId: string;
+  toFacilityId: string;
+  encounterId?: string | null;
+  reason: string;
+  clinicalSummary?: string | null;
+  priority: ReferralPriority;
+  status: ReferralStatus;
+  resolvedAt?: string | null;
+  createdAt?: string;
+  patient?: Pick<Patient, 'id' | 'patientCode' | 'firstName' | 'lastName'>;
+  fromFacility?: Facility;
+  toFacility?: Facility;
+}
+
+export interface Consent {
+  id: string;
+  patientId: string;
+  grantedToFacilityId?: string | null;
+  purpose: ConsentPurpose;
+  scope: ConsentScope;
+  status: ConsentStatus;
+  validFrom: string;
+  validTo?: string | null;
+  createdAt?: string;
+  grantedToFacility?: Facility | null;
+}
+
+export interface ClinicalDocument {
+  id: string;
+  patientId: string;
+  encounterId?: string | null;
+  facilityId?: string | null;
+  type: 'LAB_REPORT' | 'REFERRAL_LETTER' | 'DISCHARGE_SUMMARY' | 'IMAGING' | 'OTHER';
+  title: string;
+  format: 'PDF' | 'IMAGE' | 'TEXT' | 'FHIR';
+  url?: string | null;
+  content?: string | null;
+  createdAt?: string;
+}
+
+export interface TerminologyConcept {
+  id: string;
+  system: 'ICD10' | 'LOINC' | 'SNOMED' | 'ATC';
+  code: string;
+  display: string;
+  diseaseCode?: string | null;
 }

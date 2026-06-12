@@ -9,6 +9,11 @@ import Patients from '../pages/Patients';
 import PatientForm from '../pages/PatientForm';
 import PatientDetail from '../pages/PatientDetail';
 import EncounterForm from '../pages/EncounterForm';
+import Facilities from '../pages/Facilities';
+import FacilityForm from '../pages/FacilityForm';
+import Referrals from '../pages/Referrals';
+import HealthExchange from '../pages/HealthExchange';
+import Portal from '../pages/Portal';
 import Reports from '../pages/Reports';
 import ReportForm from '../pages/ReportForm';
 import Alerts from '../pages/Alerts';
@@ -66,7 +71,7 @@ export function AppRoutes() {
         <Route
           path="patients"
           element={
-            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
               <Patients />
             </ProtectedRoute>
           }
@@ -74,7 +79,7 @@ export function AppRoutes() {
         <Route
           path="patients/new"
           element={
-            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
               <PatientForm />
             </ProtectedRoute>
           }
@@ -82,7 +87,7 @@ export function AppRoutes() {
         <Route
           path="patients/:id"
           element={
-            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
               <PatientDetail />
             </ProtectedRoute>
           }
@@ -90,7 +95,7 @@ export function AppRoutes() {
         <Route
           path="patients/:id/edit"
           element={
-            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
               <PatientForm />
             </ProtectedRoute>
           }
@@ -98,8 +103,58 @@ export function AppRoutes() {
         <Route
           path="patients/:id/encounters/new"
           element={
-            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
               <EncounterForm />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="referrals"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <Referrals />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="hie"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <HealthExchange />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="portal"
+          element={
+            <ProtectedRoute roles={['RESIDENT']}>
+              <Portal />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="facilities"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER']}>
+              <Facilities />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="facilities/new"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER']}>
+              <FacilityForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="facilities/:id/edit"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER']}>
+              <FacilityForm />
             </ProtectedRoute>
           }
         />

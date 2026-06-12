@@ -17,6 +17,7 @@ const vitalSignSchema = z.object({
 const diagnosisSchema = z.object({
   diseaseId: z.string().optional(),
   icd10Code: z.string().optional(),
+  snomedCode: z.string().optional(),
   description: z.string().min(1),
   certainty: certaintyEnum.optional().default('CONFIRMED'),
   isPrimary: z.boolean().optional().default(false),
@@ -38,6 +39,7 @@ const prescriptionSchema = z.object({
 export const createEncounterSchema = z.object({
   patientId: z.string().min(1),
   barangayId: z.string().optional(),
+  facilityId: z.string().optional(),
   type: encounterTypeEnum.optional().default('CONSULT'),
   encounterDate: z.coerce.date().optional(),
   chiefComplaint: z.string().optional(),

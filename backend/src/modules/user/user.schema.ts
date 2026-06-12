@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
-const roleEnum = z.enum(['ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT']);
+const roleEnum = z.enum([
+  'ADMIN',
+  'HEALTH_OFFICER',
+  'FACILITY_ADMIN',
+  'BHW',
+  'HOSPITAL_ENCODER',
+  'RESIDENT',
+  'PHYSICIAN',
+  'NURSE',
+  'MIDWIFE',
+]);
 
 export const createUserSchema = z.object({
   email: z.string().email(),
@@ -9,6 +19,9 @@ export const createUserSchema = z.object({
   lastName: z.string().min(1),
   role: roleEnum,
   barangayId: z.string().optional(),
+  facilityId: z.string().optional(),
+  licenseNo: z.string().optional(),
+  providerType: z.string().optional(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -18,12 +31,16 @@ export const updateUserSchema = z.object({
   lastName: z.string().min(1).optional(),
   role: roleEnum.optional(),
   barangayId: z.string().optional(),
+  facilityId: z.string().optional(),
+  licenseNo: z.string().optional(),
+  providerType: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 
 export const listUserQuerySchema = z.object({
   role: roleEnum.optional(),
   barangayId: z.string().optional(),
+  facilityId: z.string().optional(),
   isActive: z.enum(['true', 'false']).optional(),
 });
 

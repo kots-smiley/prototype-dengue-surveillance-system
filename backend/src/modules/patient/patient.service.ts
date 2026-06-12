@@ -5,12 +5,12 @@ import { AppError } from '../../helper/app-error';
 import { parsePagination, buildPaginationMeta } from '../../helper/pagination';
 import { AuthUser } from '../../types';
 
-/** Generate a human-readable patient code, e.g. "P-2026-0001". */
+/** Generate a municipality-wide patient code, e.g. "LOPEZ-2026-0001". */
 async function generatePatientCode(): Promise<string> {
   const year = new Date().getFullYear();
   const total = await patientRepository.countAll();
   const sequence = String(total + 1).padStart(4, '0');
-  return `P-${year}-${sequence}`;
+  return `LOPEZ-${year}-${sequence}`;
 }
 
 export const patientService = {
@@ -18,6 +18,7 @@ export const patientService = {
     const where: Prisma.PatientWhereInput = {};
 
     if (query.barangayId) where.barangayId = query.barangayId;
+    if (query.facilityId) where.homeFacilityId = query.facilityId;
     if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
 
     if (query.search) {
@@ -26,6 +27,7 @@ export const patientService = {
         { firstName: { contains: term, mode: 'insensitive' } },
         { lastName: { contains: term, mode: 'insensitive' } },
         { patientCode: { contains: term, mode: 'insensitive' } },
+        { philhealthNo: { contains: term, mode: 'insensitive' } },
       ];
     }
 
@@ -45,16 +47,18 @@ export const patientService = {
 
   async create(input: CreatePatientInput, user: AuthUser) {
     const patientCode = await generatePatientCode();
-    const { barangayId, consentGiven, ...rest } = input;
+    const { barangayId, homeFacilityId, consentGiven, identifiers, ...rest } = input;
 
     const data: Prisma.PatientCreateInput = {
       ...rest,
       patientCode,
+      identifiers: identifiers ?? [],
       consentGiven: consentGiven ?? false,
       consentDate: consentGiven ? new Date() : null,
       registeredBy: { connect: { id: user.id } },
     };
     if (barangayId) data.barangay = { connect: { id: barangayId } };
+    if (homeFacilityId) data.homeFacility = { connect: { id: homeFacilityId } };
 
     return patientRepository.create(data);
   },
@@ -65,11 +69,14 @@ export const patientService = {
       throw new AppError('Patient not found', 404);
     }
 
-    const { barangayId, consentGiven, ...rest } = input;
+    const { barangayId, homeFacilityId, consentGiven, ...rest } = input;
     const data: Prisma.PatientUpdateInput = { ...rest };
 
     if (barangayId !== undefined) {
       data.barangay = barangayId ? { connect: { id: barangayId } } : { disconnect: true };
+    }
+    if (homeFacilityId !== undefined) {
+      data.homeFacility = homeFacilityId ? { connect: { id: homeFacilityId } } : { disconnect: true };
     }
 
     // Stamp consent date the moment consent transitions to granted.

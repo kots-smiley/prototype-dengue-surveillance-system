@@ -14,7 +14,8 @@ import { Checkbox } from '../components/ui/Checkbox';
 import { Spinner } from '../components/ui/Spinner';
 import { patientService } from '../services/patient-service';
 import { barangayService } from '../services/barangay-service';
-import { Barangay } from '../types';
+import { facilityService } from '../services/facility-service';
+import { Barangay, Facility } from '../types';
 import { ApiError } from '../utils/api-client';
 import { toDateInputValue } from '../utils/formatters';
 import {
@@ -33,6 +34,7 @@ const patientSchema = z.object({
   contactNumber: z.string().optional(),
   address: z.string().optional(),
   barangayId: z.string().optional(),
+  homeFacilityId: z.string().optional(),
   philhealthNo: z.string().optional(),
   bloodType: z.string().optional(),
   consentGiven: z.boolean().optional(),
@@ -45,6 +47,7 @@ export default function PatientForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -61,8 +64,12 @@ export default function PatientForm() {
   useEffect(() => {
     const load = async () => {
       try {
-        const barangaysRes = await barangayService.list();
+        const [barangaysRes, facilitiesRes] = await Promise.all([
+          barangayService.list(),
+          facilityService.list({ isActive: 'true' }),
+        ]);
         setBarangays(barangaysRes.data.barangays);
+        setFacilities(facilitiesRes.data.facilities);
 
         if (id) {
           const res = await patientService.getById(id);
@@ -77,6 +84,7 @@ export default function PatientForm() {
             contactNumber: p.contactNumber ?? '',
             address: p.address ?? '',
             barangayId: p.barangayId ?? '',
+            homeFacilityId: p.homeFacilityId ?? '',
             philhealthNo: p.philhealthNo ?? '',
             bloodType: p.bloodType ?? '',
             consentGiven: p.consentGiven,
@@ -103,6 +111,7 @@ export default function PatientForm() {
         contactNumber: data.contactNumber?.trim() || undefined,
         address: data.address?.trim() || undefined,
         barangayId: data.barangayId || undefined,
+        homeFacilityId: data.homeFacilityId || undefined,
         philhealthNo: data.philhealthNo?.trim() || undefined,
         bloodType: data.bloodType || undefined,
         notes: data.notes?.trim() || undefined,
@@ -172,6 +181,14 @@ export default function PatientForm() {
                 ))}
               </Select>
             </div>
+            <Select label="Home facility" {...register('homeFacilityId')}>
+              <option value="">Not specified</option>
+              {facilities.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </Select>
             <Input label="Address" {...register('address')} />
           </Card>
 

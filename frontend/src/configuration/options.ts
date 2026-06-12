@@ -90,6 +90,48 @@ export const BLOOD_TYPE_OPTIONS = [
   'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-',
 ] as const;
 
+export const FACILITY_TYPE_OPTIONS = [
+  { value: 'RHU_MAIN', label: 'RHU (Main)' },
+  { value: 'BARANGAY_HEALTH_STATION', label: 'Barangay Health Station' },
+  { value: 'MUNICIPAL_HOSPITAL', label: 'Municipal Hospital' },
+  { value: 'DISTRICT_HOSPITAL', label: 'District Hospital' },
+  { value: 'PRIVATE_CLINIC', label: 'Private Clinic' },
+  { value: 'LABORATORY', label: 'Laboratory' },
+  { value: 'PHARMACY', label: 'Pharmacy' },
+] as const;
+
+export const REFERRAL_PRIORITY_OPTIONS = [
+  { value: 'ROUTINE', label: 'Routine' },
+  { value: 'URGENT', label: 'Urgent' },
+  { value: 'EMERGENCY', label: 'Emergency' },
+] as const;
+
+export const CONSENT_PURPOSE_OPTIONS = [
+  { value: 'TREATMENT', label: 'Treatment' },
+  { value: 'EMERGENCY', label: 'Emergency' },
+  { value: 'PUBLIC_HEALTH', label: 'Public Health' },
+] as const;
+
+export const CONSENT_SCOPE_OPTIONS = [
+  { value: 'SUMMARY', label: 'Summary only' },
+  { value: 'FULL', label: 'Full record' },
+] as const;
+
+export const DOCUMENT_TYPE_OPTIONS = [
+  { value: 'LAB_REPORT', label: 'Lab report' },
+  { value: 'REFERRAL_LETTER', label: 'Referral letter' },
+  { value: 'DISCHARGE_SUMMARY', label: 'Discharge summary' },
+  { value: 'IMAGING', label: 'Imaging' },
+  { value: 'OTHER', label: 'Other' },
+] as const;
+
+export const IDENTIFIER_SYSTEM_OPTIONS = [
+  { value: 'PHILHEALTH', label: 'PhilHealth' },
+  { value: 'PHILSYS', label: 'PhilSys (National ID)' },
+  { value: 'LOCAL', label: 'Local ID' },
+  { value: 'OTHER', label: 'Other' },
+] as const;
+
 /**
  * Small ICD-10 reference subset. `diseaseCode` links a diagnosis to the
  * surveillance Disease registry so notifiable diagnoses auto-generate cases.

@@ -3,20 +3,29 @@ import { Prisma } from '@prisma/client';
 
 const listInclude = {
   barangay: true,
+  homeFacility: true,
   _count: { select: { encounters: true } },
 } satisfies Prisma.PatientInclude;
 
 const detailInclude = {
   barangay: true,
+  homeFacility: true,
   registeredBy: { select: { id: true, firstName: true, lastName: true, role: true } },
   allergies: { orderBy: { createdAt: 'desc' } },
   problems: { orderBy: { createdAt: 'desc' } },
   immunizations: { orderBy: { dateGiven: 'desc' } },
   maternalRecords: { orderBy: { visitDate: 'desc' } },
   labResults: { orderBy: { resultDate: 'desc' } },
+  consents: { orderBy: { createdAt: 'desc' }, include: { grantedToFacility: true } },
+  documents: { orderBy: { createdAt: 'desc' } },
+  referrals: {
+    orderBy: { createdAt: 'desc' },
+    include: { fromFacility: true, toFacility: true },
+  },
   encounters: {
     orderBy: { encounterDate: 'desc' },
     include: {
+      facility: true,
       clinician: { select: { id: true, firstName: true, lastName: true, role: true } },
       vitalSign: true,
       diagnoses: { include: { disease: true } },

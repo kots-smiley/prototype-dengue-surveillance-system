@@ -32,7 +32,7 @@ export async function authenticate(
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, role: true, barangayId: true, isActive: true },
+      select: { id: true, email: true, role: true, barangayId: true, facilityId: true, isActive: true },
     });
 
     if (!user || !user.isActive) {
@@ -44,6 +44,7 @@ export async function authenticate(
       email: user.email,
       role: user.role,
       barangayId: user.barangayId,
+      facilityId: user.facilityId,
     };
     next();
   } catch (error) {

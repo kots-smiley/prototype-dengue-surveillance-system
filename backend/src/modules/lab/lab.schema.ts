@@ -4,6 +4,7 @@ export const createLabSchema = z.object({
   patientId: z.string().min(1),
   encounterId: z.string().optional(),
   testName: z.string().min(1),
+  loincCode: z.string().optional(),
   value: z.string().optional(),
   unit: z.string().optional(),
   referenceRange: z.string().optional(),

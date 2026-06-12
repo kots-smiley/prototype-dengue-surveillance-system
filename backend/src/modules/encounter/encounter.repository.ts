@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 const include = {
   patient: { select: { id: true, patientCode: true, firstName: true, lastName: true, sex: true, birthDate: true } },
   barangay: true,
+  facility: true,
   clinician: { select: { id: true, firstName: true, lastName: true, role: true } },
   vitalSign: true,
   diagnoses: { include: { disease: true } },

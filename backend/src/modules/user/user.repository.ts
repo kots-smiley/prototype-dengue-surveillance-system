@@ -8,10 +8,14 @@ const safeSelect = {
   lastName: true,
   role: true,
   barangayId: true,
+  facilityId: true,
+  licenseNo: true,
+  providerType: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
   barangay: true,
+  facility: true,
 } satisfies Prisma.UserSelect;
 
 export const userRepository = {

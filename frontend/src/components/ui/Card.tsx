@@ -12,7 +12,7 @@ export function Card({ children, className = '', title, subtitle, actions }: Car
   return (
     <section className={`card ${className}`}>
       {(title || subtitle || actions) && (
-        <header className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <header className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between dark:border-slate-800">
           <div>
             {title && <h2 className="section-title">{title}</h2>}
             {subtitle && <p className="section-subtitle">{subtitle}</p>}

@@ -43,10 +43,74 @@ export const AGE_GROUP_OPTIONS = [
 
 export const USER_ROLE_OPTIONS = [
   { value: 'ADMIN', label: 'Administrator (RHU)' },
+  { value: 'PHYSICIAN', label: 'Physician' },
+  { value: 'NURSE', label: 'Nurse' },
+  { value: 'MIDWIFE', label: 'Midwife' },
   { value: 'BHW', label: 'Barangay Health Worker' },
   { value: 'HOSPITAL_ENCODER', label: 'Hospital Encoder' },
   { value: 'RESIDENT', label: 'Resident' },
 ] as const;
+
+export const ENCOUNTER_TYPE_OPTIONS = [
+  { value: 'CONSULT', label: 'Consultation' },
+  { value: 'PRENATAL', label: 'Prenatal' },
+  { value: 'IMMUNIZATION', label: 'Immunization' },
+  { value: 'TB', label: 'TB DOTS' },
+  { value: 'NCD', label: 'NCD (Hypertension/Diabetes)' },
+  { value: 'FOLLOWUP', label: 'Follow-up' },
+] as const;
+
+export const DIAGNOSIS_CERTAINTY_OPTIONS = [
+  { value: 'SUSPECTED', label: 'Suspected' },
+  { value: 'PROBABLE', label: 'Probable' },
+  { value: 'CONFIRMED', label: 'Confirmed' },
+] as const;
+
+export const CIVIL_STATUS_OPTIONS = [
+  { value: 'SINGLE', label: 'Single' },
+  { value: 'MARRIED', label: 'Married' },
+  { value: 'WIDOWED', label: 'Widowed' },
+  { value: 'SEPARATED', label: 'Separated' },
+  { value: 'OTHER', label: 'Other' },
+] as const;
+
+export const PROBLEM_STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'RESOLVED', label: 'Resolved' },
+  { value: 'INACTIVE', label: 'Inactive' },
+] as const;
+
+export const ALLERGY_SEVERITY_OPTIONS = [
+  { value: 'MILD', label: 'Mild' },
+  { value: 'MODERATE', label: 'Moderate' },
+  { value: 'SEVERE', label: 'Severe' },
+] as const;
+
+export const BLOOD_TYPE_OPTIONS = [
+  'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-',
+] as const;
+
+/**
+ * Small ICD-10 reference subset. `diseaseCode` links a diagnosis to the
+ * surveillance Disease registry so notifiable diagnoses auto-generate cases.
+ */
+export const ICD10_REFERENCE: { code: string; description: string; diseaseCode?: string }[] = [
+  { code: 'A90', description: 'Dengue fever', diseaseCode: 'DENG' },
+  { code: 'A91', description: 'Dengue hemorrhagic fever', diseaseCode: 'DENG' },
+  { code: 'B54', description: 'Unspecified malaria', diseaseCode: 'MAL' },
+  { code: 'A01.0', description: 'Typhoid fever', diseaseCode: 'TYPH' },
+  { code: 'A09', description: 'Acute bloody diarrhea / gastroenteritis', diseaseCode: 'ABD' },
+  { code: 'A27.9', description: 'Leptospirosis, unspecified', diseaseCode: 'LEPTO' },
+  { code: 'J11.1', description: 'Influenza-like illness', diseaseCode: 'ILI' },
+  { code: 'B05.9', description: 'Measles without complication', diseaseCode: 'MEAS' },
+  { code: 'A15.0', description: 'Tuberculosis of lung', diseaseCode: 'TB' },
+  { code: 'U07.1', description: 'COVID-19, virus identified', diseaseCode: 'COVID' },
+  { code: 'I10', description: 'Essential (primary) hypertension' },
+  { code: 'E11', description: 'Type 2 diabetes mellitus' },
+  { code: 'J06.9', description: 'Acute upper respiratory infection' },
+  { code: 'Z34', description: 'Supervision of normal pregnancy' },
+  { code: 'Z00.0', description: 'General medical examination' },
+];
 
 export const RISK_LEVEL_OPTIONS = [
   { value: 'LOW', label: 'Low' },

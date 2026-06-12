@@ -41,13 +41,13 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 via-white to-slate-100 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 via-white to-slate-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="surface w-full max-w-md p-8">
         <div className="mb-8 text-center">
-          <p className="kicker">Surveillance login</p>
-          <h1 className="mb-1 text-3xl font-bold text-primary-600">{APP_NAME}</h1>
-          <p className="text-sm text-slate-600">{APP_FULL_NAME.split('—')[1]?.trim()}</p>
-          <p className="mt-1 text-xs text-slate-500">{APP_LOCATION}</p>
+          <p className="kicker">EMR + Surveillance login</p>
+          <h1 className="mb-1 text-3xl font-bold text-primary-600 dark:text-primary-400">{APP_NAME}</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{APP_FULL_NAME.split('—')[1]?.trim()}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">{APP_LOCATION}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

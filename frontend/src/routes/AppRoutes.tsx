@@ -5,6 +5,10 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import Cases from '../pages/Cases';
 import CaseForm from '../pages/CaseForm';
+import Patients from '../pages/Patients';
+import PatientForm from '../pages/PatientForm';
+import PatientDetail from '../pages/PatientDetail';
+import EncounterForm from '../pages/EncounterForm';
 import Reports from '../pages/Reports';
 import ReportForm from '../pages/ReportForm';
 import Alerts from '../pages/Alerts';
@@ -55,6 +59,47 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={['ADMIN', 'BHW', 'HOSPITAL_ENCODER']}>
               <CaseForm />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="patients"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <Patients />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="patients/new"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <PatientForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="patients/:id"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <PatientDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="patients/:id/edit"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <PatientForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="patients/:id/encounters/new"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <EncounterForm />
             </ProtectedRoute>
           }
         />

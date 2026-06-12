@@ -1,4 +1,11 @@
-export type UserRole = 'ADMIN' | 'BHW' | 'HOSPITAL_ENCODER' | 'RESIDENT';
+export type UserRole =
+  | 'ADMIN'
+  | 'BHW'
+  | 'HOSPITAL_ENCODER'
+  | 'RESIDENT'
+  | 'PHYSICIAN'
+  | 'NURSE'
+  | 'MIDWIFE';
 export type DiseaseCategory =
   | 'VECTOR_BORNE'
   | 'WATER_BORNE'
@@ -246,4 +253,170 @@ export interface BarangayForecast {
   upper: number;
   trend: 'increasing' | 'decreasing' | 'stable';
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+// ---------------------------------------------------------------------------
+// EMR (Electronic Medical Record) types
+// ---------------------------------------------------------------------------
+export type EncounterType = 'CONSULT' | 'PRENATAL' | 'IMMUNIZATION' | 'TB' | 'NCD' | 'FOLLOWUP';
+export type DiagnosisCertainty = 'SUSPECTED' | 'PROBABLE' | 'CONFIRMED';
+export type CivilStatus = 'SINGLE' | 'MARRIED' | 'WIDOWED' | 'SEPARATED' | 'OTHER';
+export type ProblemStatus = 'ACTIVE' | 'RESOLVED' | 'INACTIVE';
+export type AllergySeverity = 'MILD' | 'MODERATE' | 'SEVERE';
+
+export interface Patient {
+  id: string;
+  patientCode: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  birthDate: string;
+  sex: Sex;
+  civilStatus?: CivilStatus | null;
+  contactNumber?: string | null;
+  address?: string | null;
+  barangayId?: string | null;
+  philhealthNo?: string | null;
+  bloodType?: string | null;
+  consentGiven: boolean;
+  consentDate?: string | null;
+  registeredById?: string | null;
+  isActive: boolean;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  barangay?: Barangay | null;
+  encounters?: Encounter[];
+  allergies?: Allergy[];
+  problems?: Problem[];
+  immunizations?: Immunization[];
+  maternalRecords?: MaternalRecord[];
+  labResults?: LabResult[];
+  _count?: { encounters?: number };
+}
+
+export interface VitalSign {
+  id: string;
+  encounterId: string;
+  systolic?: number | null;
+  diastolic?: number | null;
+  temperature?: number | null;
+  heartRate?: number | null;
+  respiratoryRate?: number | null;
+  weight?: number | null;
+  height?: number | null;
+  bmi?: number | null;
+  oxygenSat?: number | null;
+}
+
+export interface Diagnosis {
+  id: string;
+  encounterId: string;
+  diseaseId?: string | null;
+  icd10Code?: string | null;
+  description: string;
+  certainty: DiagnosisCertainty;
+  isPrimary: boolean;
+  disease?: Disease | null;
+}
+
+export interface PrescriptionItem {
+  drug: string;
+  dose?: string | null;
+  frequency?: string | null;
+  duration?: string | null;
+  instructions?: string | null;
+}
+
+export interface Prescription {
+  id: string;
+  encounterId: string;
+  items: PrescriptionItem[];
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface Encounter {
+  id: string;
+  patientId: string;
+  barangayId?: string | null;
+  clinicianId?: string | null;
+  type: EncounterType;
+  encounterDate: string;
+  chiefComplaint?: string | null;
+  subjective?: string | null;
+  objective?: string | null;
+  assessment?: string | null;
+  plan?: string | null;
+  createdAt?: string;
+  patient?: Patient;
+  barangay?: Barangay | null;
+  clinician?: Pick<User, 'id' | 'firstName' | 'lastName' | 'role'> | null;
+  vitalSign?: VitalSign | null;
+  diagnoses?: Diagnosis[];
+  prescriptions?: Prescription[];
+}
+
+export interface Allergy {
+  id: string;
+  patientId: string;
+  substance: string;
+  reaction?: string | null;
+  severity?: AllergySeverity | null;
+  createdAt?: string;
+}
+
+export interface Problem {
+  id: string;
+  patientId: string;
+  name: string;
+  status: ProblemStatus;
+  onsetDate?: string | null;
+  resolvedAt?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface Immunization {
+  id: string;
+  patientId: string;
+  vaccine: string;
+  doseNumber?: number | null;
+  dateGiven: string;
+  nextDueDate?: string | null;
+  administeredBy?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface MaternalRecord {
+  id: string;
+  patientId: string;
+  lmp?: string | null;
+  edd?: string | null;
+  gravida?: number | null;
+  para?: number | null;
+  prenatalVisit?: number | null;
+  visitDate: string;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface LabResult {
+  id: string;
+  patientId: string;
+  encounterId?: string | null;
+  testName: string;
+  value?: string | null;
+  unit?: string | null;
+  referenceRange?: string | null;
+  resultDate: string;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface Icd10Entry {
+  code: string;
+  description: string;
+  diseaseCode?: string;
 }

@@ -11,6 +11,12 @@ import predictionRouter from './modules/prediction/prediction.router';
 import dashboardRouter from './modules/dashboard/dashboard.router';
 import exportRouter from './modules/export/export.router';
 import publicRouter from './modules/public/public.router';
+import patientRouter from './modules/patient/patient.router';
+import encounterRouter from './modules/encounter/encounter.router';
+import immunizationRouter from './modules/immunization/immunization.router';
+import maternalRouter from './modules/maternal/maternal.router';
+import labRouter from './modules/lab/lab.router';
+import clinicalRouter from './modules/clinical/clinical.router';
 
 const router = Router();
 
@@ -30,5 +36,11 @@ router.use('/predictions', predictionRouter);
 router.use('/dashboard', dashboardRouter);
 router.use('/exports', exportRouter);
 router.use('/public', publicRouter);
+router.use('/patients', patientRouter);
+router.use('/encounters', encounterRouter);
+router.use('/immunizations', immunizationRouter);
+router.use('/maternal', maternalRouter);
+router.use('/labs', labRouter);
+router.use('/clinical', clinicalRouter);
 
 export default router;

@@ -136,7 +136,7 @@ export default function Cases() {
                     <th className="table-head-cell">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
+                <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
                   {cases.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50">
                       <td className="table-cell whitespace-nowrap">

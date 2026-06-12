@@ -82,15 +82,16 @@ export default function Dashboard() {
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Cases" value={stats.totalCases} tone="primary" />
+        <StatCard label="Total Cases" value={stats.totalCases} tone="primary" index={0} />
         <StatCard
           label="Cases This Month"
           value={stats.currentMonthCases}
           hint={`${stats.caseIncrease >= 0 ? '+' : ''}${stats.caseIncrease}% vs last month`}
           tone={stats.caseIncrease > 0 ? 'danger' : 'success'}
+          index={1}
         />
-        <StatCard label="Active Alerts" value={stats.activeAlerts} tone="danger" />
-        <StatCard label="Tracked Diseases" value={stats.totalDiseases} />
+        <StatCard label="Active Alerts" value={stats.activeAlerts} tone="danger" index={2} />
+        <StatCard label="Tracked Diseases" value={stats.totalDiseases} index={3} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -101,14 +102,14 @@ export default function Dashboard() {
               <XAxis dataKey="month" tick={{ fontSize: 12 }} angle={-30} textAnchor="end" height={60} />
               <YAxis allowDecimals={false} />
               <Tooltip />
-              <Line type="monotone" dataKey="cases" stroke="#0ea5e9" strokeWidth={2} />
+              <Line type="monotone" dataKey="cases" stroke="#14b8a6" strokeWidth={2.5} dot={{ r: 3 }} animationDuration={900} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
 
         <Card title="Cases by disease" subtitle="Breakdown of total case burden by disease.">
           {breakdown.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-500">No case data yet.</p>
+              <p className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">No case data yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>

@@ -26,6 +26,27 @@ export function formatDateTime(value?: string | null): string {
   }
 }
 
+/** Whole-year age from an ISO birth-date string. */
+export function ageFromBirthDate(value?: string | null): number | null {
+  if (!value) return null;
+  const birth = new Date(value);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age--;
+  return Math.max(0, age);
+}
+
+/** Full name from first/middle/last parts. */
+export function fullName(parts: {
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+}): string {
+  return [parts.firstName, parts.middleName, parts.lastName].filter(Boolean).join(' ').trim();
+}
+
 /** Turn an ENUM_LIKE_VALUE into "Enum like value". */
 export function humanize(value?: string | null): string {
   if (!value) return '';

@@ -316,7 +316,7 @@ export default function Analytics() {
                 <th className="table-head-cell">Risk</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
               {barangayForecasts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="table-cell text-center text-slate-500">
@@ -357,7 +357,7 @@ export default function Analytics() {
                 <th className="table-head-cell">Risk</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
               {rankings.map((r, idx) => {
                 const risk = riskTone(r.riskScore);
                 return (

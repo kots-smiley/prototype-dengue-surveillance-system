@@ -7,6 +7,9 @@ const include = {
   reporter: {
     select: { id: true, firstName: true, lastName: true, email: true },
   },
+  patient: {
+    select: { id: true, patientCode: true, firstName: true, lastName: true },
+  },
 } satisfies Prisma.CaseInclude;
 
 export const caseRepository = {

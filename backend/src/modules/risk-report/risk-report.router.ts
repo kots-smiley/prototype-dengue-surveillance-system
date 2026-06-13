@@ -23,7 +23,7 @@ router.get('/:id', asyncHandler(riskReportController.getById));
 
 router.post(
   '/',
-  authorize(UserRole.ADMIN, UserRole.BHW, UserRole.RESIDENT),
+  authorize(UserRole.ADMIN, UserRole.BHW),
   validate(createRiskReportSchema),
   asyncHandler(riskReportController.create)
 );

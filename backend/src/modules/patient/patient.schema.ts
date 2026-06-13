@@ -9,7 +9,7 @@ const identifierSchema = z.object({
   use: z.enum(['OFFICIAL', 'SECONDARY']).optional(),
 });
 
-export const createPatientSchema = z.object({
+const patientFieldsSchema = z.object({
   firstName: z.string().min(1),
   middleName: z.string().optional(),
   lastName: z.string().min(1),
@@ -25,9 +25,15 @@ export const createPatientSchema = z.object({
   bloodType: z.string().optional(),
   consentGiven: z.boolean().optional().default(false),
   notes: z.string().optional(),
+  initialDiseaseId: z.string().optional(),
 });
 
-export const updatePatientSchema = createPatientSchema.partial().extend({
+export const createPatientSchema = patientFieldsSchema.refine(
+  (data) => !data.initialDiseaseId || !!data.barangayId,
+  { message: 'Barangay is required when a notifiable disease is selected at registration', path: ['barangayId'] }
+);
+
+export const updatePatientSchema = patientFieldsSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 

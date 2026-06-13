@@ -15,7 +15,8 @@ import { Spinner } from '../components/ui/Spinner';
 import { patientService } from '../services/patient-service';
 import { barangayService } from '../services/barangay-service';
 import { facilityService } from '../services/facility-service';
-import { Barangay, Facility } from '../types';
+import { diseaseService } from '../services/disease-service';
+import { Barangay, Facility, Disease } from '../types';
 import { ApiError } from '../utils/api-client';
 import { toDateInputValue } from '../utils/formatters';
 import {
@@ -39,6 +40,10 @@ const patientSchema = z.object({
   bloodType: z.string().optional(),
   consentGiven: z.boolean().optional(),
   notes: z.string().optional(),
+  initialDiseaseId: z.string().optional(),
+}).refine((data) => !data.initialDiseaseId || !!data.barangayId, {
+  message: 'Barangay is required when a notifiable disease is selected',
+  path: ['barangayId'],
 });
 
 type PatientFormData = z.infer<typeof patientSchema>;
@@ -48,6 +53,7 @@ export default function PatientForm() {
   const navigate = useNavigate();
   const [barangays, setBarangays] = useState<Barangay[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [notifiableDiseases, setNotifiableDiseases] = useState<Disease[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -64,12 +70,14 @@ export default function PatientForm() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [barangaysRes, facilitiesRes] = await Promise.all([
+        const [barangaysRes, facilitiesRes, diseasesRes] = await Promise.all([
           barangayService.list(),
           facilityService.list({ isActive: 'true' }),
+          diseaseService.list({ isActive: 'true' }),
         ]);
         setBarangays(barangaysRes.data.barangays);
         setFacilities(facilitiesRes.data.facilities);
+        setNotifiableDiseases(diseasesRes.data.diseases.filter((d) => d.isNotifiable));
 
         if (id) {
           const res = await patientService.getById(id);
@@ -112,6 +120,7 @@ export default function PatientForm() {
         address: data.address?.trim() || undefined,
         barangayId: data.barangayId || undefined,
         homeFacilityId: data.homeFacilityId || undefined,
+        initialDiseaseId: !id && data.initialDiseaseId ? data.initialDiseaseId : undefined,
         philhealthNo: data.philhealthNo?.trim() || undefined,
         bloodType: data.bloodType || undefined,
         notes: data.notes?.trim() || undefined,
@@ -172,7 +181,7 @@ export default function PatientForm() {
           <Card title="2) Contact and address" className="border border-slate-100 shadow-none">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input label="Contact number" {...register('contactNumber')} />
-              <Select label="Barangay" {...register('barangayId')}>
+              <Select label="Barangay" {...register('barangayId')} error={errors.barangayId?.message}>
                 <option value="">Not specified</option>
                 {barangays.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -192,7 +201,26 @@ export default function PatientForm() {
             <Input label="Address" {...register('address')} />
           </Card>
 
-          <Card title="3) Health identifiers" className="border border-slate-100 shadow-none">
+          <Card title="3) Surveillance (optional)" className="border border-slate-100 shadow-none">
+            {!id && (
+              <>
+                <p className="mb-3 text-sm text-slate-600">
+                  Selecting a notifiable disease at registration creates a SUSPECTED surveillance case
+                  linked to this patient. Barangay is required.
+                </p>
+                <Select label="Notifiable disease" {...register('initialDiseaseId')} error={errors.initialDiseaseId?.message}>
+                  <option value="">None</option>
+                  {notifiableDiseases.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
+              </>
+            )}
+          </Card>
+
+          <Card title={id ? '3) Health identifiers' : '4) Health identifiers'} className="border border-slate-100 shadow-none">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Input label="PhilHealth number" {...register('philhealthNo')} />
               <Select label="Blood type" {...register('bloodType')}>
@@ -206,7 +234,7 @@ export default function PatientForm() {
             </div>
           </Card>
 
-          <Card title="4) Data privacy consent" className="border border-slate-100 shadow-none">
+          <Card title={id ? '4) Data privacy consent' : '5) Data privacy consent'} className="border border-slate-100 shadow-none">
             <p className="mb-3 text-sm text-slate-600">
               Under the Data Privacy Act (RA 10173), patient consent is required before clinical
               encounters can be recorded.
@@ -217,7 +245,7 @@ export default function PatientForm() {
             />
           </Card>
 
-          <Card title="5) Optional notes" className="border border-slate-100 shadow-none">
+          <Card title={id ? '5) Optional notes' : '6) Optional notes'} className="border border-slate-100 shadow-none">
             <Textarea label="Notes" rows={3} {...register('notes')} />
           </Card>
 

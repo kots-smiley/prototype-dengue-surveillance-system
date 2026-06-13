@@ -9,7 +9,6 @@ export const UserRole = {
   FACILITY_ADMIN: 'FACILITY_ADMIN', // administrator of a single facility
   BHW: 'BHW',
   HOSPITAL_ENCODER: 'HOSPITAL_ENCODER',
-  RESIDENT: 'RESIDENT',
   PHYSICIAN: 'PHYSICIAN',
   NURSE: 'NURSE',
   MIDWIFE: 'MIDWIFE',

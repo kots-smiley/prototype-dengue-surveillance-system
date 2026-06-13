@@ -10,7 +10,7 @@ export const registerSchema = z.object({
   password: z.string().min(6),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
-  role: z.enum(['ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT']),
+  role: z.enum(['ADMIN', 'BHW', 'HOSPITAL_ENCODER']),
   barangayId: z.string().optional(),
 });
 

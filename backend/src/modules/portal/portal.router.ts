@@ -10,7 +10,7 @@ const router = Router();
 
 // Patient self-service portal — scoped to the linked patient record.
 router.use(authenticate);
-router.use(authorize(UserRole.RESIDENT));
+router.use(authorize(UserRole.ADMIN)); // Portal module disabled — RHU/clinic staff only
 
 router.get('/me', asyncHandler(portalController.myRecord));
 router.get('/me/consents', asyncHandler(portalController.myConsents));

@@ -20,14 +20,14 @@ import {
   historyService,
 } from '../services/emr-program-service';
 import { medicationService } from '../services/medication-service';
-import { ageFromBirthDate, formatDate, fullName, humanize } from '../utils/formatters';
+import { ageFromBirthDate, formatDate, fullName, humanize, caseStatusBadge } from '../utils/formatters';
 import {
   ALLERGY_SEVERITY_OPTIONS,
   DOCUMENT_TYPE_OPTIONS,
   REFERRAL_PRIORITY_OPTIONS,
   MEDICAL_HISTORY_CATEGORY_OPTIONS,
 } from '../configuration/options';
-import { Encounter, Patient, Facility, Referral } from '../types';
+import { Encounter, Patient, Facility, Referral, Case } from '../types';
 import { facilityService } from '../services/facility-service';
 import { referralService, consentService, documentService, fhirService } from '../services/ehr-service';
 import { downloadJson } from '../utils/download-json';
@@ -46,6 +46,7 @@ type Tab =
   | 'maternal'
   | 'labs'
   | 'referrals'
+  | 'cases'
   | 'consent'
   | 'documents';
 
@@ -58,6 +59,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'maternal', label: 'Maternal' },
   { id: 'labs', label: 'Laboratory' },
   { id: 'referrals', label: 'Referrals' },
+  { id: 'cases', label: 'Cases' },
   { id: 'consent', label: 'Consent' },
   { id: 'documents', label: 'Documents' },
 ];
@@ -192,6 +194,7 @@ export default function PatientDetail() {
       {tab === 'maternal' && <MaternalTab patient={patient} onChange={refetch} />}
       {tab === 'labs' && <LabsTab patient={patient} onChange={refetch} />}
       {tab === 'referrals' && <ReferralsTab patient={patient} onChange={refetch} />}
+      {tab === 'cases' && <CasesTab patient={patient} />}
       {tab === 'consent' && <ConsentTab patient={patient} onChange={refetch} />}
       {tab === 'documents' && <DocumentsTab patient={patient} onChange={refetch} />}
 
@@ -211,6 +214,50 @@ export default function PatientDetail() {
         onClose={() => setArchiveOpen(false)}
       />
     </div>
+  );
+}
+
+function CasesTab({ patient }: { patient: Patient }) {
+  const cases = (patient.cases ?? []) as Case[];
+
+  if (cases.length === 0) {
+    return (
+      <EmptyState
+        title="No linked surveillance cases"
+        description="Cases are created when a notifiable disease is selected at registration or confirmed in an encounter."
+      />
+    );
+  }
+
+  return (
+    <Card title="Surveillance cases" subtitle="Auto-generated from this patient's EMR record.">
+      <div className="table-shell">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="table-head">
+            <tr>
+              <th className="table-head-cell">Date</th>
+              <th className="table-head-cell">Disease</th>
+              <th className="table-head-cell">Barangay</th>
+              <th className="table-head-cell">Status</th>
+              <th className="table-head-cell">Outcome</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
+            {cases.map((c) => (
+              <tr key={c.id}>
+                <td className="table-cell whitespace-nowrap">{formatDate(c.dateReported)}</td>
+                <td className="table-cell whitespace-nowrap font-medium">{c.disease?.name ?? '—'}</td>
+                <td className="table-cell whitespace-nowrap">{c.barangay?.name ?? '—'}</td>
+                <td className="table-cell whitespace-nowrap">
+                  <span className={caseStatusBadge(c.status)}>{humanize(c.status)}</span>
+                </td>
+                <td className="table-cell whitespace-nowrap">{humanize(c.outcome)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 

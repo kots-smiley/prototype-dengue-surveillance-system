@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import toast from 'react-hot-toast';
 import { PageHeader } from '../components/common/PageHeader';
 import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Pagination } from '../components/ui/Pagination';
@@ -64,12 +63,7 @@ export default function Cases() {
     <div className="space-y-6">
       <PageHeader
         title="Cases"
-        subtitle="Reported disease cases across all barangays"
-        actions={
-          <Link to="/cases/new">
-            <Button>Add New Case</Button>
-          </Link>
-        }
+        subtitle="Surveillance cases are generated automatically from patient EMR registrations and confirmed diagnoses."
       />
 
       <Card title="Filter and narrow" subtitle="Use only the fields you need to avoid overload.">
@@ -115,12 +109,7 @@ export default function Cases() {
         ) : cases.length === 0 ? (
           <EmptyState
             title="No cases found"
-            description="Get started by recording your first case report."
-            action={
-              <Link to="/cases/new">
-                <Button>Add New Case</Button>
-              </Link>
-            }
+            description="Cases appear when patients are registered with a notifiable disease or when encounters record confirmed diagnoses."
           />
         ) : (
           <div className="space-y-4">

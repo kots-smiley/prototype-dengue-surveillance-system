@@ -13,7 +13,6 @@ import Facilities from '../pages/Facilities';
 import FacilityForm from '../pages/FacilityForm';
 import Referrals from '../pages/Referrals';
 import HealthExchange from '../pages/HealthExchange';
-import Portal from '../pages/Portal';
 import Reports from '../pages/Reports';
 import ReportForm from '../pages/ReportForm';
 import Alerts from '../pages/Alerts';
@@ -48,14 +47,6 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={['ADMIN', 'BHW', 'HOSPITAL_ENCODER']}>
               <Cases />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="cases/new"
-          element={
-            <ProtectedRoute roles={['ADMIN', 'BHW', 'HOSPITAL_ENCODER']}>
-              <CaseForm />
             </ProtectedRoute>
           }
         />
@@ -134,10 +125,26 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="portal"
+          path="reports"
           element={
-            <ProtectedRoute roles={['RESIDENT']}>
-              <Portal />
+            <ProtectedRoute roles={['ADMIN', 'BHW']}>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="reports/new"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'BHW']}>
+              <ReportForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="reports/:id/edit"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'BHW']}>
+              <ReportForm />
             </ProtectedRoute>
           }
         />
@@ -163,31 +170,6 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER']}>
               <FacilityForm />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="reports"
-          element={
-            <ProtectedRoute roles={['ADMIN', 'BHW', 'RESIDENT']}>
-              <Reports />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="reports/new"
-          element={
-            <ProtectedRoute roles={['ADMIN', 'BHW', 'RESIDENT']}>
-              <ReportForm />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="reports/:id/edit"
-          element={
-            <ProtectedRoute roles={['ADMIN', 'BHW']}>
-              <ReportForm />
             </ProtectedRoute>
           }
         />

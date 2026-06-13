@@ -1,17 +1,35 @@
 import { Prisma } from '@prisma/client';
 import { caseRepository } from './case.repository';
-import { CreateCaseInput, UpdateCaseInput, ListCaseQuery } from './case.schema';
-import { diseaseRepository } from '../disease/disease.repository';
+import { UpdateCaseInput, ListCaseQuery } from './case.schema';
 import { earlyWarningService } from '../early-warning/early-warning.service';
 import { AppError } from '../../helper/app-error';
 import { parsePagination, buildPaginationMeta } from '../../helper/pagination';
 import { AuthUser } from '../../types';
+import { CLINICAL_ROLES, UserRole } from '../../configuration/constants';
 
 /** Fire-and-forget early warning recheck. */
 function scheduleEarlyWarning(barangayId: string, diseaseId: string): void {
   setImmediate(() => {
     void earlyWarningService.runCheck(barangayId, diseaseId);
   });
+}
+
+const PII_RESTRICTED_ROLES = new Set<UserRole>([UserRole.BHW, UserRole.HOSPITAL_ENCODER]);
+
+function sanitizeCaseForRole<T extends { patient?: { firstName?: string; lastName?: string } | null }>(
+  record: T,
+  user: AuthUser
+): T {
+  if (!record.patient) return record;
+  if (PII_RESTRICTED_ROLES.has(user.role as UserRole)) {
+    const { firstName: _fn, lastName: _ln, ...patientRest } = record.patient;
+    return { ...record, patient: patientRest };
+  }
+  if (!CLINICAL_ROLES.includes(user.role as UserRole)) {
+    const { firstName: _fn, lastName: _ln, ...patientRest } = record.patient;
+    return { ...record, patient: patientRest };
+  }
+  return record;
 }
 
 export const caseService = {
@@ -37,7 +55,10 @@ export const caseService = {
     const { page, limit, skip } = parsePagination(query.page, query.limit);
     const [items, total] = await caseRepository.findManyPaginated(where, skip, limit);
 
-    return { items, pagination: buildPaginationMeta(page, limit, total) };
+    return {
+      items: items.map((item) => sanitizeCaseForRole(item, user)),
+      pagination: buildPaginationMeta(page, limit, total),
+    };
   },
 
   async getById(id: string, user: AuthUser) {
@@ -48,31 +69,7 @@ export const caseService = {
     if (user.role === 'BHW' && record.barangayId !== user.barangayId) {
       throw new AppError('Access denied', 403);
     }
-    return record;
-  },
-
-  async create(input: CreateCaseInput, user: AuthUser) {
-    const disease = await diseaseRepository.findById(input.diseaseId);
-    if (!disease) {
-      throw new AppError('Disease not found', 404);
-    }
-
-    if (user.role === 'BHW' && input.barangayId !== user.barangayId) {
-      throw new AppError('BHW can only create cases for their assigned barangay', 403);
-    }
-
-    const { diseaseId, barangayId, ...rest } = input;
-    const record = await caseRepository.create({
-      ...rest,
-      age: input.age ?? 0,
-      ageGroup: input.ageGroup ?? 'N/A',
-      disease: { connect: { id: diseaseId } },
-      barangay: { connect: { id: barangayId } },
-      reporter: { connect: { id: user.id } },
-    });
-
-    scheduleEarlyWarning(barangayId, diseaseId);
-    return record;
+    return sanitizeCaseForRole(record, user);
   },
 
   async update(id: string, input: UpdateCaseInput, user: AuthUser) {
@@ -98,7 +95,7 @@ export const caseService = {
     const updated = await caseRepository.update(id, data);
 
     scheduleEarlyWarning(barangayId ?? existing.barangayId, diseaseId ?? existing.diseaseId);
-    return updated;
+    return sanitizeCaseForRole(updated, user);
   },
 
   async remove(id: string) {

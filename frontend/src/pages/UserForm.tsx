@@ -23,7 +23,7 @@ const userSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  role: z.enum(['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT', 'PHYSICIAN', 'NURSE', 'MIDWIFE']),
+  role: z.enum(['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'PHYSICIAN', 'NURSE', 'MIDWIFE']),
   barangayId: z.string().optional(),
   facilityId: z.string().optional(),
   licenseNo: z.string().optional(),

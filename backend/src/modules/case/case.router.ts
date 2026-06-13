@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { caseController } from './case.controller';
-import { createCaseSchema, updateCaseSchema, listCaseQuerySchema } from './case.schema';
+import { updateCaseSchema, listCaseQuerySchema } from './case.schema';
 import { validate } from '../../middleware/validate.middleware';
 import { authenticate, authorize } from '../../middleware/auth.middleware';
 import { asyncHandler } from '../../helper/async-handler';
@@ -12,13 +12,6 @@ router.use(authenticate);
 
 router.get('/', validate(listCaseQuerySchema, 'query'), asyncHandler(caseController.list));
 router.get('/:id', asyncHandler(caseController.getById));
-
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.BHW, UserRole.HOSPITAL_ENCODER),
-  validate(createCaseSchema),
-  asyncHandler(caseController.create)
-);
 
 router.put(
   '/:id',

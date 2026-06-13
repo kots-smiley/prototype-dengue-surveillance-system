@@ -6,7 +6,6 @@ const roleEnum = z.enum([
   'FACILITY_ADMIN',
   'BHW',
   'HOSPITAL_ENCODER',
-  'RESIDENT',
   'PHYSICIAN',
   'NURSE',
   'MIDWIFE',

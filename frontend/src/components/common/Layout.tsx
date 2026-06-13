@@ -23,13 +23,13 @@ import {
   Building2,
   Share2,
   ArrowLeftRight,
-  HeartPulse,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { UserRole } from '../../types';
-import { APP_NAME, APP_LOCATION } from '../../configuration/constants';
+import { APP_LOCATION } from '../../configuration/constants';
+import { BrandLogo } from './BrandLogo';
 
 interface NavItem {
   to: string;
@@ -38,7 +38,7 @@ interface NavItem {
   roles: UserRole[];
 }
 
-const ALL: UserRole[] = ['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'RESIDENT', 'PHYSICIAN', 'NURSE', 'MIDWIFE'];
+const ALL: UserRole[] = ['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'BHW', 'HOSPITAL_ENCODER', 'PHYSICIAN', 'NURSE', 'MIDWIFE'];
 const CLINICAL: UserRole[] = ['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE'];
 
 const NAV_ITEMS: NavItem[] = [
@@ -47,9 +47,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/referrals', label: 'Referrals', icon: ArrowLeftRight, roles: CLINICAL },
   { to: '/hie', label: 'Health Exchange', icon: Share2, roles: CLINICAL },
   { to: '/cases', label: 'Cases', icon: ClipboardList, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW', 'HOSPITAL_ENCODER'] },
-  { to: '/reports', label: 'Risk Reports', icon: Droplets, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW', 'RESIDENT'] },
+  { to: '/reports', label: 'Risk Reports', icon: Droplets, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW'] },
   { to: '/alerts', label: 'Alerts', icon: AlertTriangle, roles: ALL },
-  { to: '/portal', label: 'My Record', icon: HeartPulse, roles: ['RESIDENT'] },
   { to: '/feedback', label: 'Feedback', icon: MessageSquare, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW'] },
   { to: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['ADMIN', 'HEALTH_OFFICER', 'BHW', 'HOSPITAL_ENCODER'] },
   { to: '/facilities', label: 'Facilities', icon: Building2, roles: ['ADMIN', 'HEALTH_OFFICER'] },
@@ -118,15 +117,7 @@ export function Layout() {
         className="fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-white/95 backdrop-blur lg:flex dark:border-slate-800 dark:bg-slate-900/95"
       >
         <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-4 dark:border-slate-800">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-soft">
-            <Activity className="h-5 w-5" />
-          </div>
-          {!collapsed && (
-            <div className="overflow-hidden">
-              <p className="truncate text-sm font-bold text-primary-700 dark:text-primary-300">{APP_NAME}</p>
-              <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">EMR + Surveillance</p>
-            </div>
-          )}
+          <BrandLogo size="sm" showText={!collapsed} />
         </div>
         <SidebarContent showLabels={!collapsed} />
         <button
@@ -156,7 +147,7 @@ export function Layout() {
               className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white lg:hidden dark:border-slate-800 dark:bg-slate-900"
             >
               <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
-                <p className="text-sm font-bold text-primary-700 dark:text-primary-300">{APP_NAME}</p>
+                <BrandLogo size="sm" showText />
                 <button onClick={() => setMobileOpen(false)} className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800">
                   <X className="h-5 w-5" />
                 </button>

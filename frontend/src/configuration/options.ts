@@ -48,7 +48,6 @@ export const USER_ROLE_OPTIONS = [
   { value: 'MIDWIFE', label: 'Midwife' },
   { value: 'BHW', label: 'Barangay Health Worker' },
   { value: 'HOSPITAL_ENCODER', label: 'Hospital Encoder' },
-  { value: 'RESIDENT', label: 'Resident' },
 ] as const;
 
 export const ENCOUNTER_TYPE_OPTIONS = [

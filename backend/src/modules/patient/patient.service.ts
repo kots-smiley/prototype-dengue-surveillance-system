@@ -1,9 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { patientRepository } from './patient.repository';
 import { CreatePatientInput, UpdatePatientInput, ListPatientQuery } from './patient.schema';
+import { createSuspectedFromRegistration } from '../case/case-generation.service';
 import { AppError } from '../../helper/app-error';
 import { parsePagination, buildPaginationMeta } from '../../helper/pagination';
 import { AuthUser } from '../../types';
+import { logger } from '../../helper/logger';
 
 /** Generate a municipality-wide patient code, e.g. "LOPEZ-2026-0001". */
 async function generatePatientCode(): Promise<string> {
@@ -47,7 +49,7 @@ export const patientService = {
 
   async create(input: CreatePatientInput, user: AuthUser) {
     const patientCode = await generatePatientCode();
-    const { barangayId, homeFacilityId, consentGiven, identifiers, ...rest } = input;
+    const { barangayId, homeFacilityId, consentGiven, identifiers, initialDiseaseId, ...rest } = input;
 
     const data: Prisma.PatientCreateInput = {
       ...rest,
@@ -60,7 +62,26 @@ export const patientService = {
     if (barangayId) data.barangay = { connect: { id: barangayId } };
     if (homeFacilityId) data.homeFacility = { connect: { id: homeFacilityId } };
 
-    return patientRepository.create(data);
+    const patient = await patientRepository.create(data);
+
+    if (initialDiseaseId && barangayId) {
+      try {
+        await createSuspectedFromRegistration(
+          {
+            id: patient.id,
+            birthDate: patient.birthDate,
+            sex: patient.sex,
+            barangayId,
+          },
+          initialDiseaseId,
+          user.id
+        );
+      } catch (error) {
+        logger.error('Failed to auto-generate SUSPECTED case from registration', error);
+      }
+    }
+
+    return patient;
   },
 
   async update(id: string, input: UpdatePatientInput) {

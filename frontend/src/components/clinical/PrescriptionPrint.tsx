@@ -1,5 +1,6 @@
 import { Encounter, Patient } from '../../types';
 import { formatDate, fullName, humanize } from '../../utils/formatters';
+import { BrandLogo } from '../common/BrandLogo';
 
 export function PrescriptionPrint({
   patient,
@@ -15,6 +16,9 @@ export function PrescriptionPrint({
 
   return (
     <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+        <BrandLogo size="md" showText />
+      </div>
       <h1>Prescription</h1>
       <div className="meta">
         {encounter.facility?.name ?? 'Health facility'} · {formatDate(encounter.encounterDate)}

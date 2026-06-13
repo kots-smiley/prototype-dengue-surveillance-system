@@ -68,7 +68,8 @@ Internal records are projected to FHIR on read (no duplicate storage) by `backen
 
 ## 5. Privacy & security summary (RA 10173 / ISO 27799)
 
-- Patient PII is restricted to clinical roles (`ADMIN`, `HEALTH_OFFICER`, `FACILITY_ADMIN`, `PHYSICIAN`, `NURSE`, `MIDWIFE`); BHW/Hospital Encoder/Resident remain surveillance-only or self-service.
+- Patient PII is restricted to clinical roles (`ADMIN`, `HEALTH_OFFICER`, `FACILITY_ADMIN`, `PHYSICIAN`, `NURSE`, `MIDWIFE`); BHW and Hospital Encoder see de-identified case data (no patient names). Public forecast endpoints return aggregates only.
+- Surveillance cases are **patient-linked** in the database but created only from EMR (registration SUSPECTED + encounter CONFIRMED); manual `POST /api/cases` is disabled.
 - Encounters require recorded patient **consent** (`Patient.consentGiven`).
 - Cross-facility access via the HIE is governed by `Consent` directives; emergency **break-glass** access is permitted but flagged and audited.
 - Every mutation and every PII read is written to `AuditLog` with `purposeOfUse` and `facilityId`.
@@ -85,8 +86,8 @@ Internal records are projected to FHIR on read (no duplicate storage) by `backen
 | Capture history | Structured PMH / surgical / family / social | `MedicalHistoryEntry`, `/api/clinical/history` |
 | Order management | Lab order workflow (ORDERED → RESULTED) | `LabResult.status`, `/api/labs` |
 | Terminology services | Live ICD-10 / LOINC search in clinical UI | `TerminologyCombobox`, `/api/terminology` |
-| Document generation | Printable prescription and referral letter | `PrintPreviewModal`, patient chart |
-| Patient access | Expanded resident portal (allergies, meds, visits) | `portal.service`, `/portal` |
+| Document generation | Printable prescription and referral letter (Lopez seal letterhead) | `PrintPreviewModal`, patient chart |
+| Case linkage | Patient chart Cases tab; optional notifiable disease at registration | `case-generation.service`, `PatientDetail` |
 
 ## 7. Capstone demo script (5 minutes)
 
@@ -95,4 +96,4 @@ Internal records are projected to FHIR on read (no duplicate storage) by `backen
 3. Enter platelet lab result — observe results list update.
 4. Edit an encounter to amend diagnosis — audit logged; no duplicate surveillance case.
 5. Print prescription and referral letter.
-6. Log in as Resident — view allergies, medications, and recent visits on the portal.
+6. Open Cases list as BHW — confirm no patient names; open patient chart Cases tab as Physician.

@@ -25,7 +25,6 @@ import documentRouter from './modules/document/document.router';
 import terminologyRouter from './modules/terminology/terminology.router';
 import fhirRouter from './modules/fhir/fhir.router';
 import hieRouter from './modules/hie/hie.router';
-import portalRouter from './modules/portal/portal.router';
 
 const router = Router();
 
@@ -59,6 +58,5 @@ router.use('/documents', documentRouter);
 router.use('/terminology', terminologyRouter);
 router.use('/fhir', fhirRouter);
 router.use('/hie', hieRouter);
-router.use('/portal', portalRouter);
 
 export default router;

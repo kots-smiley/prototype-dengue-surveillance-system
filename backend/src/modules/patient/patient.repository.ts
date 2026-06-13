@@ -24,6 +24,10 @@ const detailInclude = {
     orderBy: { createdAt: 'desc' },
     include: { fromFacility: true, toFacility: true },
   },
+  cases: {
+    orderBy: { dateReported: 'desc' },
+    include: { disease: true, barangay: true },
+  },
   encounters: {
     orderBy: { encounterDate: 'desc' },
     include: {

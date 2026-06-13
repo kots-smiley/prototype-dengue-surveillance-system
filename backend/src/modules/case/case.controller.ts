@@ -14,11 +14,6 @@ export const caseController = {
     sendSuccess(res, { case: record }, 'Case retrieved');
   },
 
-  async create(req: AuthRequest, res: Response) {
-    const record = await caseService.create(req.body, req.user!);
-    sendSuccess(res, { case: record }, 'Case created', 201);
-  },
-
   async update(req: AuthRequest, res: Response) {
     const record = await caseService.update(req.params.id, req.body, req.user!);
     sendSuccess(res, { case: record }, 'Case updated');

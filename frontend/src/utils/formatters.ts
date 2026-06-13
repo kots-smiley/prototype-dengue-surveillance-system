@@ -47,6 +47,15 @@ export function fullName(parts: {
   return [parts.firstName, parts.middleName, parts.lastName].filter(Boolean).join(' ').trim();
 }
 
+/** Staff member who encoded/registered a record (name + role). */
+export function encoderLabel(
+  user?: { firstName?: string | null; lastName?: string | null; role?: string | null } | null
+): string {
+  if (!user?.firstName && !user?.lastName) return 'N/A';
+  const name = fullName(user);
+  return user.role ? `${name} (${humanize(user.role)})` : name;
+}
+
 /** Turn an ENUM_LIKE_VALUE into "Enum like value". */
 export function humanize(value?: string | null): string {
   if (!value) return '';

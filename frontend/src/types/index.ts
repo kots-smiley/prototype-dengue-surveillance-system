@@ -301,6 +301,7 @@ export interface Patient {
   consentGiven: boolean;
   consentDate?: string | null;
   registeredById?: string | null;
+  registeredBy?: Pick<User, 'id' | 'firstName' | 'lastName' | 'role'> | null;
   isActive: boolean;
   notes?: string | null;
   createdAt?: string;

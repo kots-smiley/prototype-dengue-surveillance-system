@@ -20,7 +20,7 @@ import {
   historyService,
 } from '../services/emr-program-service';
 import { medicationService } from '../services/medication-service';
-import { ageFromBirthDate, formatDate, fullName, humanize, caseStatusBadge } from '../utils/formatters';
+import { ageFromBirthDate, encoderLabel, formatDate, formatDateTime, fullName, humanize, caseStatusBadge } from '../utils/formatters';
 import {
   ALLERGY_SEVERITY_OPTIONS,
   DOCUMENT_TYPE_OPTIONS,
@@ -143,6 +143,11 @@ export default function PatientDetail() {
         <SummaryItem label="PhilHealth" value={patient.philhealthNo ?? 'N/A'} />
         <SummaryItem label="Contact" value={patient.contactNumber ?? 'N/A'} />
         <SummaryItem label="Civil status" value={patient.civilStatus ? humanize(patient.civilStatus) : 'N/A'} />
+        <SummaryItem label="Encoded by" value={encoderLabel(patient.registeredBy)} />
+        <SummaryItem
+          label="Registered on"
+          value={patient.createdAt ? formatDateTime(patient.createdAt) : 'N/A'}
+        />
         <SummaryItem
           label="Active meds"
           value={String(patient.medications?.length ?? 0)}

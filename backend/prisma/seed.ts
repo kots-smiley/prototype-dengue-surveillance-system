@@ -238,54 +238,7 @@ async function seedUsers() {
 }
 
 async function seedSampleData() {
-  const existingReports = await prisma.riskReport.count();
-  if (existingReports > 0) {
-    console.log('Sample risk reports already present, skipping sample data generation.');
-    return;
-  }
-
-  const barangays = await prisma.barangay.findMany();
-  const reporter = await prisma.user.findFirst({ where: { role: 'BHW' } });
-  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
-  const reporterId = reporter?.id ?? admin?.id;
-  if (!reporterId || barangays.length === 0) return;
-
-  const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-  const randomInt = (min: number, max: number) =>
-    Math.floor(Math.random() * (max - min + 1)) + min;
-
-  const now = new Date();
-
-  // Generate environmental risk reports for the current and previous month.
-  const CATEGORIES = ['VECTOR_BORNE', 'WATER_BORNE', 'AIRBORNE'];
-  const factorsForCategory: Record<string, string[]> = {
-    VECTOR_BORNE: ['stagnantWater', 'poorWasteDisposal', 'cloggedDrainage', 'housingCongestion'],
-    WATER_BORNE: ['unsafeWaterSource', 'poorSanitation', 'openDefecation', 'foodContamination'],
-    AIRBORNE: ['overcrowding', 'poorVentilation', 'activeRespiratoryCase'],
-  };
-
-  let reportCount = 0;
-  for (let monthsAgo = 1; monthsAgo >= 0; monthsAgo--) {
-    for (const barangay of barangays) {
-      if (Math.random() > 0.6) continue;
-      const category = pick(CATEGORIES);
-      const flags = factorsForCategory[category].reduce(
-        (acc, key) => ({ ...acc, [key]: Math.random() > 0.5 }),
-        {} as Record<string, boolean>
-      );
-      await prisma.riskReport.create({
-        data: {
-          barangayId: barangay.id,
-          reportedBy: reporterId,
-          category,
-          dateReported: new Date(now.getFullYear(), now.getMonth() - monthsAgo, randomInt(1, 27)),
-          ...flags,
-        },
-      });
-      reportCount++;
-    }
-  }
-  console.log(`Seeded ${reportCount} sample risk reports.`);
+  // Risk reports are generated in seedYearlyHistory (12-month span).
 }
 
 function ageGroupFromAge(age: number): string {
@@ -295,6 +248,193 @@ function ageGroupFromAge(age: number): string {
   if (age <= 30) return '19-30';
   if (age <= 50) return '31-50';
   return '50+';
+}
+
+const YEARLY_SEED_MARKER = 'yearly-seed';
+
+const FIRST_NAMES = [
+  'Juan', 'Maria', 'Pedro', 'Rosa', 'Antonio', 'Carmen', 'Jose', 'Ana', 'Ricardo', 'Elena',
+  'Miguel', 'Teresa', 'Carlos', 'Luz', 'Fernando', 'Grace', 'Roberto', 'Helen', 'Emmanuel', 'Joy',
+];
+const LAST_NAMES = [
+  'Dela Cruz', 'Santos', 'Reyes', 'Garcia', 'Bautista', 'Gonzales', 'Villanueva', 'Ramos', 'Torres', 'Flores',
+  'Mendoza', 'Aquino', 'Castillo', 'Navarro', 'Domingo', 'Salazar', 'Mercado', 'Valdez', 'Pascual', 'Lopez',
+];
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomDateInMonth(year: number, month: number, maxDay?: number): Date {
+  const lastDay = maxDay ?? new Date(year, month + 1, 0).getDate();
+  const day = randomInt(1, lastDay);
+  return new Date(year, month, day, randomInt(8, 17), randomInt(0, 59));
+}
+
+function seasonalCaseCount(seasonalMonths: number[], month: number): number {
+  const inSeason = seasonalMonths.length === 0 || seasonalMonths.includes(month);
+  if (inSeason) return randomInt(5, 14);
+  return randomInt(0, 4);
+}
+
+function outcomeForCase(reportDate: Date, now: Date): 'ONGOING' | 'RECOVERED' | 'DIED' {
+  const ageMs = now.getTime() - reportDate.getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (ageDays < 21) return Math.random() > 0.92 ? 'DIED' : 'ONGOING';
+  if (Math.random() > 0.97) return 'DIED';
+  return Math.random() > 0.25 ? 'RECOVERED' : 'ONGOING';
+}
+
+/** Patient-linked cases and risk reports spanning the past 12 months through today. */
+async function seedYearlyHistory() {
+  const existing = await prisma.case.count({
+    where: { notes: { contains: YEARLY_SEED_MARKER } },
+  });
+  if (existing > 0) {
+    console.log(`Yearly history already present (${existing} cases), skipping.`);
+    return;
+  }
+
+  const barangays = await prisma.barangay.findMany();
+  const diseases = await prisma.disease.findMany({ where: { isActive: true, isNotifiable: true } });
+  const physician = await prisma.user.findFirst({ where: { role: 'PHYSICIAN' } });
+  const bhw = await prisma.user.findFirst({ where: { role: 'BHW' } });
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+  const reporterId = physician?.id ?? bhw?.id ?? admin?.id;
+  const rhu = await prisma.facility.findUnique({ where: { code: 'LPZ-RHU' } });
+
+  if (!reporterId || barangays.length === 0 || diseases.length === 0) return;
+
+  const now = new Date();
+  const start = new Date(now);
+  start.setFullYear(now.getFullYear() - 1);
+  start.setHours(0, 0, 0, 0);
+
+  let patientSeq = await prisma.patient.count();
+  let caseCount = 0;
+  let reportCount = 0;
+  let encounterCount = 0;
+
+  const CATEGORIES = ['VECTOR_BORNE', 'WATER_BORNE', 'AIRBORNE'] as const;
+  const factorsForCategory: Record<string, string[]> = {
+    VECTOR_BORNE: ['stagnantWater', 'poorWasteDisposal', 'cloggedDrainage', 'housingCongestion'],
+    WATER_BORNE: ['unsafeWaterSource', 'poorSanitation', 'openDefecation', 'foodContamination'],
+    AIRBORNE: ['overcrowding', 'poorVentilation', 'activeRespiratoryCase'],
+  };
+
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (cursor <= now) {
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+    const monthNum = m + 1;
+    const isCurrentMonth = y === now.getFullYear() && m === now.getMonth();
+    const maxDay = isCurrentMonth ? now.getDate() : undefined;
+
+    for (const barangay of barangays) {
+      if (Math.random() > 0.45) continue;
+      const category = pick([...CATEGORIES]);
+      const flags = factorsForCategory[category].reduce(
+        (acc, key) => ({ ...acc, [key]: Math.random() > 0.45 }),
+        {} as Record<string, boolean>
+      );
+      await prisma.riskReport.create({
+        data: {
+          barangayId: barangay.id,
+          reportedBy: bhw?.id ?? reporterId,
+          category,
+          dateReported: randomDateInMonth(y, m, maxDay),
+          notes: `${YEARLY_SEED_MARKER} environmental risk report`,
+          ...flags,
+        },
+      });
+      reportCount++;
+    }
+
+    for (const disease of diseases) {
+      const count = seasonalCaseCount(disease.seasonalMonths, monthNum);
+      for (let i = 0; i < count; i++) {
+        const barangay = pick(barangays);
+        const birthYear = y - randomInt(1, 72);
+        const birthDate = new Date(birthYear, randomInt(0, 11), randomInt(1, 28));
+        const sex = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
+        patientSeq += 1;
+
+        const patient = await prisma.patient.create({
+          data: {
+            patientCode: `P-${y}-${String(patientSeq).padStart(4, '0')}`,
+            firstName: pick(FIRST_NAMES),
+            lastName: pick(LAST_NAMES),
+            birthDate,
+            sex,
+            barangayId: barangay.id,
+            homeFacilityId: rhu?.id ?? null,
+            consentGiven: true,
+            consentDate: randomDateInMonth(y, m, maxDay),
+            registeredById: reporterId,
+            isActive: true,
+          },
+        });
+
+        const encounterDate = randomDateInMonth(y, m, maxDay);
+        const encounter = await prisma.encounter.create({
+          data: {
+            patientId: patient.id,
+            barangayId: barangay.id,
+            facilityId: rhu?.id ?? null,
+            clinicianId: reporterId,
+            type: 'CONSULT',
+            encounterDate,
+            chiefComplaint: `Symptoms consistent with ${disease.name}`,
+            assessment: `${disease.name} — confirmed (seed).`,
+            diagnoses: {
+              create: [
+                {
+                  diseaseId: disease.id,
+                  description: disease.name,
+                  certainty: 'CONFIRMED',
+                  isPrimary: true,
+                },
+              ],
+            },
+          },
+        });
+        encounterCount += 1;
+
+        const age = Math.max(0, encounterDate.getFullYear() - birthDate.getFullYear());
+        const sources = ['RHU', 'BHW', 'PUBLIC_HOSPITAL', 'PRIVATE_HOSPITAL'] as const;
+        await prisma.case.create({
+          data: {
+            diseaseId: disease.id,
+            barangayId: barangay.id,
+            facilityId: rhu?.id ?? null,
+            reportedBy: reporterId,
+            patientId: patient.id,
+            sourceEncounterId: encounter.id,
+            autoGenerated: true,
+            dateReported: encounterDate,
+            age,
+            ageGroup: ageGroupFromAge(age),
+            sex,
+            status: Math.random() > 0.12 ? 'CONFIRMED' : 'SUSPECTED',
+            outcome: outcomeForCase(encounterDate, now),
+            source: pick([...sources]),
+            notes: `${YEARLY_SEED_MARKER} Auto-generated from EMR encounter ${encounter.id}.`,
+          },
+        });
+        caseCount += 1;
+      }
+    }
+
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  console.log(
+    `Seeded yearly history: ${caseCount} patient-linked cases, ${encounterCount} encounters, ${reportCount} risk reports (${start.toISOString().slice(0, 10)} → ${now.toISOString().slice(0, 10)}).`
+  );
 }
 
 async function seedEmr() {
@@ -307,8 +447,6 @@ async function seedEmr() {
   const barangays = await prisma.barangay.findMany();
   const physician = await prisma.user.findFirst({ where: { role: 'PHYSICIAN' } });
   const dengue = await prisma.disease.findUnique({ where: { code: 'DENG' } });
-  const lepto = await prisma.disease.findUnique({ where: { code: 'LEPTO' } });
-  const typhoid = await prisma.disease.findUnique({ where: { code: 'TYPH' } });
   if (barangays.length === 0 || !physician) return;
 
   const year = new Date().getFullYear();
@@ -492,87 +630,7 @@ async function seedEmr() {
     }
   }
 
-  // Additional patient-linked cases spread over prior months for forecast aggregates.
-  const extraDiseases = [dengue, lepto, typhoid].filter(Boolean) as Array<{ id: string; code: string }>;
-  const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-  const randomInt = (min: number, max: number) =>
-    Math.floor(Math.random() * (max - min + 1)) + min;
-
-  let extraCaseCount = 0;
-  for (let monthsAgo = 9; monthsAgo >= 0; monthsAgo--) {
-    for (const disease of extraDiseases) {
-      const baseCount = randomInt(0, 2) + (monthsAgo <= 2 ? randomInt(0, 2) : 0);
-      for (let i = 0; i < baseCount; i++) {
-        const barangay = pick(barangays);
-        const birthYear = year - randomInt(5, 65);
-        const birthDate = new Date(birthYear, randomInt(0, 11), randomInt(1, 28));
-        const sex = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
-        const seqNum = samplePatients.length + extraCaseCount + 1;
-        const patient = await prisma.patient.create({
-          data: {
-            patientCode: `P-${year}-${String(seqNum).padStart(4, '0')}`,
-            firstName: 'Demo',
-            lastName: `Patient ${seqNum}`,
-            birthDate,
-            sex,
-            barangayId: barangay.id,
-            consentGiven: true,
-            consentDate: now,
-            registeredById: physician.id,
-            isActive: true,
-          },
-        });
-
-        const encounterDate = new Date(now.getFullYear(), now.getMonth() - monthsAgo, randomInt(1, 27));
-        const encounter = await prisma.encounter.create({
-          data: {
-            patientId: patient.id,
-            barangayId: barangay.id,
-            clinicianId: physician.id,
-            type: 'CONSULT',
-            encounterDate,
-            assessment: `Confirmed ${disease.code} case (seed).`,
-            diagnoses: {
-              create: [
-                {
-                  diseaseId: disease.id,
-                  description: disease.code,
-                  certainty: 'CONFIRMED',
-                  isPrimary: true,
-                },
-              ],
-            },
-          },
-        });
-
-        const age = year - birthYear;
-        await prisma.case.create({
-          data: {
-            diseaseId: disease.id,
-            barangayId: barangay.id,
-            reportedBy: physician.id,
-            patientId: patient.id,
-            sourceEncounterId: encounter.id,
-            autoGenerated: true,
-            dateReported: encounterDate,
-            age,
-            ageGroup: ageGroupFromAge(age),
-            sex,
-            status: 'CONFIRMED',
-            outcome: Math.random() > 0.85 ? 'RECOVERED' : 'ONGOING',
-            source: 'RHU',
-            notes: `Auto-generated from EMR encounter ${encounter.id}.`,
-          },
-        });
-        extraCaseCount++;
-      }
-    }
-  }
-
-  console.log(`Seeded ${samplePatients.length} EMR patients with encounters and program records.`);
-  if (extraCaseCount > 0) {
-    console.log(`Seeded ${extraCaseCount} additional patient-linked surveillance cases.`);
-  }
+  console.log(`Seeded ${samplePatients.length} EMR demo patients with encounters and program records.`);
 }
 
 async function seedFacilities() {
@@ -672,6 +730,7 @@ async function main() {
   await seedUsers();
   await seedSampleData();
   await seedEmr();
+  await seedYearlyHistory();
   await seedEhrLinks();
   console.log('\nDefault login credentials:');
   console.log('  Admin:     admin@healthwatch.local / admin123');

@@ -9,7 +9,7 @@ import { Pagination } from '../components/ui/Pagination';
 import { Input } from '../components/ui/Input';
 import { useApiResource } from '../hooks/useApiResource';
 import { patientService } from '../services/patient-service';
-import { ageFromBirthDate, fullName, humanize } from '../utils/formatters';
+import { ageFromBirthDate, encoderLabel, fullName, humanize } from '../utils/formatters';
 import { DEFAULT_PAGE_SIZE } from '../configuration/constants';
 
 export default function Patients() {
@@ -78,6 +78,7 @@ export default function Patients() {
                     <th className="table-head-cell">Age</th>
                     <th className="table-head-cell">Sex</th>
                     <th className="table-head-cell">Barangay</th>
+                    <th className="table-head-cell">Encoded by</th>
                     <th className="table-head-cell">Consent</th>
                     <th className="table-head-cell">Actions</th>
                   </tr>
@@ -94,6 +95,9 @@ export default function Patients() {
                       <td className="table-cell whitespace-nowrap">{ageFromBirthDate(p.birthDate) ?? 'N/A'}</td>
                       <td className="table-cell whitespace-nowrap">{humanize(p.sex)}</td>
                       <td className="table-cell whitespace-nowrap">{p.barangay?.name ?? 'N/A'}</td>
+                      <td className="table-cell whitespace-nowrap text-slate-600">
+                        {encoderLabel(p.registeredBy)}
+                      </td>
                       <td className="table-cell whitespace-nowrap">
                         <span className={`badge ${p.consentGiven ? 'badge-success' : 'badge-warning'}`}>
                           {p.consentGiven ? 'On file' : 'Pending'}

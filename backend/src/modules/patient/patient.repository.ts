@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 const listInclude = {
   barangay: true,
   homeFacility: true,
+  registeredBy: { select: { id: true, firstName: true, lastName: true, role: true } },
   _count: { select: { encounters: true } },
 } satisfies Prisma.PatientInclude;
 

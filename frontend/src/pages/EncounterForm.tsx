@@ -9,12 +9,15 @@ import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { Spinner } from '../components/ui/Spinner';
+import { Checkbox } from '../components/ui/Checkbox';
+import { TerminologyCombobox } from '../components/clinical/TerminologyCombobox';
 import { patientService } from '../services/patient-service';
 import { diseaseService } from '../services/disease-service';
 import { encounterService } from '../services/encounter-service';
 import { Disease, Patient } from '../types';
 import { ApiError } from '../utils/api-client';
-import { fullName } from '../utils/formatters';
+import { fullName, humanize, toDateInputValue } from '../utils/formatters';
+import { findAllergyConflicts } from '../utils/allergy-check';
 import {
   ENCOUNTER_TYPE_OPTIONS,
   DIAGNOSIS_CERTAINTY_OPTIONS,
@@ -60,14 +63,16 @@ const numeric = (v: string): number | undefined => {
 };
 
 export default function EncounterForm() {
-  const { id = '' } = useParams();
+  const { id = '', encounterId } = useParams();
+  const isEdit = Boolean(encounterId);
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [diseases, setDiseases] = useState<Disease[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [allergyAcknowledged, setAllergyAcknowledged] = useState(false);
 
-  const { register, handleSubmit, control, setValue, watch } = useForm<EncounterFormData>({
+  const { register, handleSubmit, control, setValue, watch, reset } = useForm<EncounterFormData>({
     defaultValues: {
       type: 'CONSULT',
       encounterDate: new Date().toISOString().split('T')[0],
@@ -91,12 +96,18 @@ export default function EncounterForm() {
 
   const diagnoses = useFieldArray({ control, name: 'diagnoses' });
   const medications = useFieldArray({ control, name: 'medications' });
+  const watchedMeds = watch('medications');
 
   const diseaseByCode = useMemo(() => {
     const map = new Map<string, string>();
     diseases.forEach((d) => map.set(d.code, d.id));
     return map;
   }, [diseases]);
+
+  const allergyConflicts = useMemo(
+    () => findAllergyConflicts(watchedMeds?.map((m) => m.drug) ?? [], patient?.allergies),
+    [watchedMeds, patient?.allergies]
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -107,74 +118,125 @@ export default function EncounterForm() {
         ]);
         setPatient(patientRes.data.patient);
         setDiseases(diseasesRes.data.diseases);
+
+        if (encounterId) {
+          const encRes = await encounterService.getById(encounterId);
+          const e = encRes.data.encounter;
+          reset({
+            type: e.type,
+            encounterDate: toDateInputValue(e.encounterDate),
+            chiefComplaint: e.chiefComplaint ?? '',
+            subjective: e.subjective ?? '',
+            objective: e.objective ?? '',
+            assessment: e.assessment ?? '',
+            plan: e.plan ?? '',
+            systolic: e.vitalSign?.systolic?.toString() ?? '',
+            diastolic: e.vitalSign?.diastolic?.toString() ?? '',
+            temperature: e.vitalSign?.temperature?.toString() ?? '',
+            heartRate: e.vitalSign?.heartRate?.toString() ?? '',
+            respiratoryRate: e.vitalSign?.respiratoryRate?.toString() ?? '',
+            weight: e.vitalSign?.weight?.toString() ?? '',
+            height: e.vitalSign?.height?.toString() ?? '',
+            oxygenSat: e.vitalSign?.oxygenSat?.toString() ?? '',
+            diagnoses:
+              e.diagnoses?.map((d) => ({
+                icd10Code: d.icd10Code ?? '',
+                description: d.description,
+                certainty: d.certainty,
+                isPrimary: d.isPrimary,
+                diseaseCode: d.disease?.code ?? '',
+              })) ?? [],
+            medications:
+              e.prescriptions?.flatMap((p) =>
+                p.items.map((it) => ({
+                  drug: it.drug,
+                  dose: it.dose ?? '',
+                  frequency: it.frequency ?? '',
+                  duration: it.duration ?? '',
+                  instructions: it.instructions ?? '',
+                }))
+              ) ?? [],
+          });
+        }
       } catch (err) {
-        toast.error(err instanceof ApiError ? err.message : 'Failed to load patient');
-        navigate('/patients');
+        toast.error(err instanceof ApiError ? err.message : 'Failed to load encounter form');
+        navigate(`/patients/${id}`);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [id, navigate]);
+  }, [id, encounterId, navigate, reset]);
 
-  const applyIcd10 = (index: number, code: string) => {
-    const entry = ICD10_REFERENCE.find((e) => e.code === code);
-    if (!entry) return;
-    setValue(`diagnoses.${index}.icd10Code`, entry.code);
-    setValue(`diagnoses.${index}.description`, entry.description);
-    setValue(`diagnoses.${index}.diseaseCode`, entry.diseaseCode ?? '');
+  const applyIcd10 = (index: number, code: string, description: string, diseaseCode?: string) => {
+    setValue(`diagnoses.${index}.icd10Code`, code);
+    setValue(`diagnoses.${index}.description`, description);
+    setValue(`diagnoses.${index}.diseaseCode`, diseaseCode ?? '');
+  };
+
+  const buildPayload = (data: EncounterFormData) => {
+    const vitalSign = {
+      systolic: numeric(data.systolic),
+      diastolic: numeric(data.diastolic),
+      temperature: numeric(data.temperature),
+      heartRate: numeric(data.heartRate),
+      respiratoryRate: numeric(data.respiratoryRate),
+      weight: numeric(data.weight),
+      height: numeric(data.height),
+      oxygenSat: numeric(data.oxygenSat),
+    };
+    const hasVitals = Object.values(vitalSign).some((v) => v !== undefined);
+
+    const diagnosesPayload = data.diagnoses
+      .filter((d) => d.description.trim())
+      .map((d) => ({
+        description: d.description.trim(),
+        icd10Code: d.icd10Code || undefined,
+        certainty: d.certainty || 'CONFIRMED',
+        isPrimary: d.isPrimary,
+        diseaseId: d.diseaseCode ? diseaseByCode.get(d.diseaseCode) : undefined,
+      }));
+
+    const items = data.medications
+      .filter((m) => m.drug.trim())
+      .map((m) => ({
+        drug: m.drug.trim(),
+        dose: m.dose.trim() || undefined,
+        frequency: m.frequency.trim() || undefined,
+        duration: m.duration.trim() || undefined,
+        instructions: m.instructions.trim() || undefined,
+      }));
+
+    return {
+      type: data.type,
+      encounterDate: data.encounterDate || undefined,
+      chiefComplaint: data.chiefComplaint.trim() || undefined,
+      subjective: data.subjective.trim() || undefined,
+      objective: data.objective.trim() || undefined,
+      assessment: data.assessment.trim() || undefined,
+      plan: data.plan.trim() || undefined,
+      vitalSign: hasVitals ? vitalSign : undefined,
+      diagnoses: diagnosesPayload,
+      prescriptions: items.length > 0 ? [{ items }] : [],
+    };
   };
 
   const onSubmit = async (data: EncounterFormData) => {
+    if (allergyConflicts.length > 0 && !allergyAcknowledged) {
+      toast.error('Acknowledge allergy warnings before saving');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const vitalSign = {
-        systolic: numeric(data.systolic),
-        diastolic: numeric(data.diastolic),
-        temperature: numeric(data.temperature),
-        heartRate: numeric(data.heartRate),
-        respiratoryRate: numeric(data.respiratoryRate),
-        weight: numeric(data.weight),
-        height: numeric(data.height),
-        oxygenSat: numeric(data.oxygenSat),
-      };
-      const hasVitals = Object.values(vitalSign).some((v) => v !== undefined);
-
-      const diagnosesPayload = data.diagnoses
-        .filter((d) => d.description.trim())
-        .map((d) => ({
-          description: d.description.trim(),
-          icd10Code: d.icd10Code || undefined,
-          certainty: d.certainty || 'CONFIRMED',
-          isPrimary: d.isPrimary,
-          diseaseId: d.diseaseCode ? diseaseByCode.get(d.diseaseCode) : undefined,
-        }));
-
-      const items = data.medications
-        .filter((m) => m.drug.trim())
-        .map((m) => ({
-          drug: m.drug.trim(),
-          dose: m.dose.trim() || undefined,
-          frequency: m.frequency.trim() || undefined,
-          duration: m.duration.trim() || undefined,
-          instructions: m.instructions.trim() || undefined,
-        }));
-
-      await encounterService.create({
-        patientId: id,
-        type: data.type,
-        encounterDate: data.encounterDate || undefined,
-        chiefComplaint: data.chiefComplaint.trim() || undefined,
-        subjective: data.subjective.trim() || undefined,
-        objective: data.objective.trim() || undefined,
-        assessment: data.assessment.trim() || undefined,
-        plan: data.plan.trim() || undefined,
-        vitalSign: hasVitals ? vitalSign : undefined,
-        diagnoses: diagnosesPayload,
-        prescriptions: items.length > 0 ? [{ items }] : [],
-      });
-
-      toast.success('Encounter recorded');
+      const payload = buildPayload(data);
+      if (isEdit && encounterId) {
+        await encounterService.update(encounterId, payload);
+        toast.success('Encounter amended');
+      } else {
+        await encounterService.create({ patientId: id, ...payload });
+        toast.success('Encounter recorded');
+      }
       navigate(`/patients/${id}`);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to save encounter');
@@ -189,9 +251,24 @@ export default function EncounterForm() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
-        title="New Encounter"
+        title={isEdit ? 'Edit Encounter' : 'New Encounter'}
         subtitle={`${fullName(patient)} · ${patient.patientCode}`}
       />
+
+      {(patient.allergies?.length ?? 0) > 0 && (
+        <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3">
+          <p className="text-sm font-semibold text-red-800">Known allergies — review before prescribing</p>
+          <ul className="mt-2 space-y-1 text-sm text-red-700">
+            {patient.allergies!.map((a) => (
+              <li key={a.id}>
+                {a.substance}
+                {a.severity ? ` (${humanize(a.severity)})` : ''}
+                {a.reaction ? ` — ${a.reaction}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Card title="1) Visit details">
@@ -232,7 +309,7 @@ export default function EncounterForm() {
 
         <Card
           title="4) Diagnoses"
-          subtitle="A confirmed notifiable disease here auto-creates a de-identified surveillance case."
+          subtitle="Search ICD-10 or pick a notifiable disease quick-reference."
           actions={
             <Button
               type="button"
@@ -258,13 +335,29 @@ export default function EncounterForm() {
               {diagnoses.fields.map((field, index) => (
                 <div key={field.id} className="rounded-xl border border-slate-200 p-4">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <Select
-                      label="ICD-10 reference"
-                      defaultValue=""
-                      onChange={(e) => applyIcd10(index, e.target.value)}
-                    >
-                      <option value="">Select to prefill…</option>
-                      {ICD10_REFERENCE.map((e) => (
+                    <TerminologyCombobox
+                      label="ICD-10 search"
+                      system="ICD10"
+                      value={watch(`diagnoses.${index}.icd10Code`)}
+                      displayValue={
+                        watch(`diagnoses.${index}.icd10Code`)
+                          ? `${watch(`diagnoses.${index}.icd10Code`)} — ${watch(`diagnoses.${index}.description`)}`
+                          : ''
+                      }
+                      onSelect={(c) =>
+                        applyIcd10(index, c.code, c.display, c.diseaseCode ?? undefined)
+                      }
+                      onClear={() => {
+                        setValue(`diagnoses.${index}.icd10Code`, '');
+                        setValue(`diagnoses.${index}.diseaseCode`, '');
+                      }}
+                    />
+                    <Select label="Quick pick (notifiable)" defaultValue="" onChange={(e) => {
+                      const entry = ICD10_REFERENCE.find((x) => x.code === e.target.value);
+                      if (entry) applyIcd10(index, entry.code, entry.description, entry.diseaseCode);
+                    }}>
+                      <option value="">Notifiable quick pick…</option>
+                      {ICD10_REFERENCE.filter((e) => e.diseaseCode).map((e) => (
                         <option key={e.code} value={e.code}>
                           {e.code} — {e.description}
                         </option>
@@ -321,35 +414,58 @@ export default function EncounterForm() {
             <p className="text-sm text-slate-500">No medications added.</p>
           ) : (
             <div className="space-y-4">
-              {medications.fields.map((field, index) => (
-                <div key={field.id} className="rounded-xl border border-slate-200 p-4">
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <Input label="Drug *" {...register(`medications.${index}.drug`)} />
-                    <Input label="Dose" {...register(`medications.${index}.dose`)} />
-                    <Input label="Frequency" {...register(`medications.${index}.frequency`)} />
-                    <Input label="Duration" {...register(`medications.${index}.duration`)} />
+              {medications.fields.map((field, index) => {
+                const rowConflicts = findAllergyConflicts(
+                  [watch(`medications.${index}.drug`)],
+                  patient.allergies
+                );
+                return (
+                  <div
+                    key={field.id}
+                    className={`rounded-xl border p-4 ${rowConflicts.length ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}`}
+                  >
+                    {rowConflicts.length > 0 && (
+                      <p className="mb-2 text-sm font-medium text-amber-800">
+                        Allergy warning: {rowConflicts.map((c) => c.allergy.substance).join(', ')}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <Input label="Drug *" {...register(`medications.${index}.drug`)} />
+                      <Input label="Dose" {...register(`medications.${index}.dose`)} />
+                      <Input label="Frequency" {...register(`medications.${index}.frequency`)} />
+                      <Input label="Duration" {...register(`medications.${index}.duration`)} />
+                    </div>
+                    <div className="mt-3">
+                      <Input label="Instructions" {...register(`medications.${index}.instructions`)} />
+                    </div>
+                    <div className="mt-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => medications.remove(index)}
+                        className="text-sm text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-3">
-                    <Input label="Instructions" {...register(`medications.${index}.instructions`)} />
-                  </div>
-                  <div className="mt-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => medications.remove(index)}
-                      className="text-sm text-red-600 hover:text-red-800"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+          )}
+          {allergyConflicts.length > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <Checkbox
+                label="I acknowledge the allergy warnings and wish to proceed with this prescription"
+                checked={allergyAcknowledged}
+                onChange={(e) => setAllergyAcknowledged(e.target.checked)}
+              />
             </div>
           )}
         </Card>
 
         <div className="flex gap-3">
           <Button type="submit" disabled={submitting}>
-            {submitting ? 'Saving...' : 'Save Encounter'}
+            {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Encounter'}
           </Button>
           <Button type="button" variant="secondary" onClick={() => navigate(`/patients/${id}`)}>
             Cancel

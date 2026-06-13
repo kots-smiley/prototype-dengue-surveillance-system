@@ -155,8 +155,14 @@ export const ICD10_REFERENCE: { code: string; description: string; diseaseCode?:
   { code: 'I10', description: 'Essential (primary) hypertension' },
   { code: 'E11', description: 'Type 2 diabetes mellitus' },
   { code: 'J06.9', description: 'Acute upper respiratory infection' },
+  { code: 'J18.9', description: 'Pneumonia, unspecified' },
+  { code: 'K29.7', description: 'Gastritis, unspecified' },
+  { code: 'M79.3', description: 'Myalgia' },
+  { code: 'R50.9', description: 'Fever, unspecified' },
+  { code: 'R51', description: 'Headache' },
   { code: 'Z34', description: 'Supervision of normal pregnancy' },
   { code: 'Z00.0', description: 'General medical examination' },
+  { code: 'J45.909', description: 'Asthma, unspecified' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -269,6 +275,8 @@ export const LOINC_REFERENCE: { code: string; display: string }[] = [
   { code: '14682-9', display: 'Urinalysis' },
   { code: '5196-1', display: 'Hepatitis B surface antigen' },
   { code: '5404-9', display: 'Dengue NS1 antigen' },
+  { code: '29576-6', display: 'Dengue virus IgM antibody' },
+  { code: '48703-3', display: 'Hematocrit' },
 ];
 
 /** Seed subset of SNOMED CT clinical findings (paired with common diagnoses). */

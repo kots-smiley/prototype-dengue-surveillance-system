@@ -19,6 +19,11 @@ export const encounterController = {
     sendSuccess(res, { encounter: record }, 'Encounter recorded', 201);
   },
 
+  async update(req: AuthRequest, res: Response) {
+    const record = await encounterService.update(req.params.id, req.body, req.user!);
+    sendSuccess(res, { encounter: record }, 'Encounter amended');
+  },
+
   async remove(req: AuthRequest, res: Response) {
     await encounterService.remove(req.params.id);
     sendSuccess(res, null, 'Encounter deleted');

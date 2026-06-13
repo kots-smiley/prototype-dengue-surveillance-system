@@ -125,6 +125,13 @@ export const DOCUMENT_TYPE_OPTIONS = [
   { value: 'OTHER', label: 'Other' },
 ] as const;
 
+export const MEDICAL_HISTORY_CATEGORY_OPTIONS = [
+  { value: 'PMH', label: 'Past medical history' },
+  { value: 'SURGICAL', label: 'Surgical history' },
+  { value: 'FAMILY', label: 'Family history' },
+  { value: 'SOCIAL', label: 'Social history' },
+] as const;
+
 export const IDENTIFIER_SYSTEM_OPTIONS = [
   { value: 'PHILHEALTH', label: 'PhilHealth' },
   { value: 'PHILSYS', label: 'PhilSys (National ID)' },

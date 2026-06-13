@@ -13,6 +13,7 @@
         "db:push": "prisma db push",
         "db:studio": "prisma studio",
         "db:seed": "tsx prisma/seed.ts",
+        "db:clear": "node scripts/clear-db.js",
         "prisma:generate": "prisma generate",
         "prisma:db:push": "prisma db push --skip-generate",
         "prisma:seed": "tsx prisma/seed.ts",

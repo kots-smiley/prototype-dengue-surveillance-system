@@ -31,6 +31,10 @@ export const caseRepository = {
     return prisma.case.findUnique({ where: { id } });
   },
 
+  findBySourceEncounterId(encounterId: string) {
+    return prisma.case.findFirst({ where: { sourceEncounterId: encounterId } });
+  },
+
   create(data: Prisma.CaseCreateInput) {
     return prisma.case.create({ data, include });
   },

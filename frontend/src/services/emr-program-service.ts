@@ -26,6 +26,8 @@ export interface LabPayload {
   patientId: string;
   encounterId?: string;
   testName: string;
+  loincCode?: string;
+  status?: string;
   value?: string;
   unit?: string;
   referenceRange?: string;
@@ -79,6 +81,12 @@ export const labService = {
   create(payload: LabPayload) {
     return apiClient<{ labResult: LabResult }>('/labs', { method: 'POST', body: payload });
   },
+  update(id: string, payload: Partial<LabPayload>) {
+    return apiClient<{ labResult: LabResult }>(`/labs/${id}`, { method: 'PUT', body: payload });
+  },
+  cancel(id: string) {
+    return apiClient<{ labResult: LabResult }>(`/labs/${id}/cancel`, { method: 'PUT' });
+  },
   remove(id: string) {
     return apiClient<null>(`/labs/${id}`, { method: 'DELETE' });
   },
@@ -102,5 +110,24 @@ export const problemService = {
   },
   remove(id: string) {
     return apiClient<null>(`/clinical/problems/${id}`, { method: 'DELETE' });
+  },
+};
+
+export interface HistoryPayload {
+  patientId: string;
+  category: string;
+  description: string;
+  notes?: string;
+}
+
+export const historyService = {
+  create(payload: HistoryPayload) {
+    return apiClient<{ entry: import('../types').MedicalHistoryEntry }>('/clinical/history', {
+      method: 'POST',
+      body: payload,
+    });
+  },
+  remove(id: string) {
+    return apiClient<null>(`/clinical/history/${id}`, { method: 'DELETE' });
   },
 };

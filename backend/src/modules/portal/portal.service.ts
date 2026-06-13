@@ -16,7 +16,7 @@ async function resolveMyPatientId(userId: string): Promise<string> {
 export const portalService = {
   async getMyRecord(userId: string) {
     const patientId = await resolveMyPatientId(userId);
-    const record = await patientRepository.findById(patientId);
+    const record = await patientRepository.findByIdForPortal(patientId);
     return { patient: record };
   },
 

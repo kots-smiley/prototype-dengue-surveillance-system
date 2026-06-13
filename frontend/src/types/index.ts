@@ -269,6 +269,9 @@ export type DiagnosisCertainty = 'SUSPECTED' | 'PROBABLE' | 'CONFIRMED';
 export type CivilStatus = 'SINGLE' | 'MARRIED' | 'WIDOWED' | 'SEPARATED' | 'OTHER';
 export type ProblemStatus = 'ACTIVE' | 'RESOLVED' | 'INACTIVE';
 export type AllergySeverity = 'MILD' | 'MODERATE' | 'SEVERE';
+export type LabStatus = 'ORDERED' | 'RESULTED' | 'CANCELLED';
+export type MedicationStatus = 'ACTIVE' | 'DISCONTINUED';
+export type MedicalHistoryCategory = 'PMH' | 'SURGICAL' | 'FAMILY' | 'SOCIAL';
 
 export interface PatientIdentifier {
   system: 'PHILHEALTH' | 'PHILSYS' | 'LOCAL' | 'OTHER';
@@ -308,6 +311,8 @@ export interface Patient {
   immunizations?: Immunization[];
   maternalRecords?: MaternalRecord[];
   labResults?: LabResult[];
+  medications?: Medication[];
+  medicalHistoryEntries?: MedicalHistoryEntry[];
   referrals?: Referral[];
   consents?: Consent[];
   documents?: ClinicalDocument[];
@@ -428,10 +433,37 @@ export interface LabResult {
   patientId: string;
   encounterId?: string | null;
   testName: string;
+  loincCode?: string | null;
+  status?: LabStatus;
   value?: string | null;
   unit?: string | null;
   referenceRange?: string | null;
+  orderedAt?: string | null;
   resultDate: string;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface Medication {
+  id: string;
+  patientId: string;
+  encounterId?: string | null;
+  drug: string;
+  dose?: string | null;
+  frequency?: string | null;
+  route?: string | null;
+  status: MedicationStatus;
+  startDate: string;
+  endDate?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface MedicalHistoryEntry {
+  id: string;
+  patientId: string;
+  category: MedicalHistoryCategory;
+  description: string;
   notes?: string | null;
   createdAt?: string;
 }
@@ -484,7 +516,7 @@ export interface Referral {
   status: ReferralStatus;
   resolvedAt?: string | null;
   createdAt?: string;
-  patient?: Pick<Patient, 'id' | 'patientCode' | 'firstName' | 'lastName'>;
+  patient?: Pick<Patient, 'id' | 'patientCode' | 'firstName' | 'lastName' | 'birthDate' | 'sex'>;
   fromFacility?: Facility;
   toFacility?: Facility;
 }

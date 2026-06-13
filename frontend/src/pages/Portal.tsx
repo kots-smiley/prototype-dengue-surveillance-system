@@ -65,13 +65,71 @@ export default function Portal() {
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card title="Allergies">
+          {(patient.allergies?.length ?? 0) === 0 ? (
+            <p className="text-sm text-slate-500">No known allergies recorded.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {patient.allergies!.map((a) => (
+                <li key={a.id} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  {a.substance} {a.severity ? `(${humanize(a.severity)})` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card title="Active problems">
+          {(patient.problems?.length ?? 0) === 0 ? (
+            <p className="text-sm text-slate-500">No active problems on record.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {patient.problems!.map((p) => (
+                <li key={p.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                  {p.name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card title="Active medications">
+          {(patient.medications?.length ?? 0) === 0 ? (
+            <p className="text-sm text-slate-500">No active medications on record.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {patient.medications!.map((m) => (
+                <li key={m.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                  {m.drug} {m.dose ? `· ${m.dose}` : ''} {m.frequency ? `· ${m.frequency}` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card title="Recent visits">
+          {(patient.encounters?.length ?? 0) === 0 ? (
+            <p className="text-sm text-slate-500">No visits on record.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {patient.encounters!.map((e) => (
+                <li key={e.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                  {humanize(e.type)} · {formatDate(e.encounterDate)}
+                  {e.chiefComplaint ? ` · ${e.chiefComplaint}` : ''}
+                  {e.diagnoses?.[0] ? ` · ${e.diagnoses[0].description}` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
         <Card title="Immunizations">
           {(patient.immunizations?.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No immunizations on record.</p>
+            <p className="text-sm text-slate-500">No immunizations on record.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {patient.immunizations!.map((im) => (
-                <li key={im.id} className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
+                <li key={im.id} className="rounded-lg border border-slate-200 px-3 py-2">
                   {im.vaccine} · {formatDate(im.dateGiven)}
                 </li>
               ))}
@@ -79,14 +137,15 @@ export default function Portal() {
           )}
         </Card>
 
-        <Card title="Recent results">
+        <Card title="Recent lab results">
           {(patient.labResults?.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No lab results on record.</p>
+            <p className="text-sm text-slate-500">No lab results on record.</p>
           ) : (
             <ul className="space-y-2 text-sm">
-              {patient.labResults!.slice(0, 8).map((l) => (
-                <li key={l.id} className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
-                  {l.testName}: <span className="font-semibold">{l.value ?? '—'}</span> {l.unit ?? ''} · {formatDate(l.resultDate)}
+              {patient.labResults!.map((l) => (
+                <li key={l.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                  {l.testName}: <span className="font-semibold">{l.value ?? '—'}</span> {l.unit ?? ''} ·{' '}
+                  {formatDate(l.resultDate)}
                 </li>
               ))}
             </ul>
@@ -106,13 +165,13 @@ export default function Portal() {
         {consentsLoading ? (
           <Spinner label="Loading consents..." />
         ) : consents.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500">
             No active sharing consent. Facilities cannot view your record across the network until you allow it.
           </p>
         ) : (
           <ul className="space-y-2">
             {consents.map((c) => (
-              <li key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+              <li key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
                 <span>
                   {c.grantedToFacility?.name ?? 'All facilities'} · {humanize(c.purpose)} ·{' '}
                   <span className={`badge ${c.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}>

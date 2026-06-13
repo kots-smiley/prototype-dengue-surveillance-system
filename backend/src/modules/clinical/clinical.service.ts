@@ -5,6 +5,7 @@ import {
   CreateProblemInput,
   UpdateProblemInput,
   ListClinicalQuery,
+  CreateHistoryInput,
 } from './clinical.schema';
 import { AppError } from '../../helper/app-error';
 
@@ -49,5 +50,26 @@ export const clinicalService = {
     const existing = await prisma.problem.findUnique({ where: { id } });
     if (!existing) throw new AppError('Problem not found', 404);
     await prisma.problem.delete({ where: { id } });
+  },
+
+  // --- Medical history ---
+  async listHistory(query: ListClinicalQuery) {
+    const where: Prisma.MedicalHistoryEntryWhereInput = {};
+    if (query.patientId) where.patientId = query.patientId;
+    if (query.category) where.category = query.category;
+    return prisma.medicalHistoryEntry.findMany({ where, orderBy: { createdAt: 'desc' } });
+  },
+
+  async createHistory(input: CreateHistoryInput) {
+    const { patientId, ...rest } = input;
+    return prisma.medicalHistoryEntry.create({
+      data: { ...rest, patient: { connect: { id: patientId } } },
+    });
+  },
+
+  async removeHistory(id: string) {
+    const existing = await prisma.medicalHistoryEntry.findUnique({ where: { id } });
+    if (!existing) throw new AppError('History entry not found', 404);
+    await prisma.medicalHistoryEntry.delete({ where: { id } });
   },
 };

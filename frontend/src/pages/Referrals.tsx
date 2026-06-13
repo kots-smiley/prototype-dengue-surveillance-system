@@ -6,9 +6,12 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { Spinner } from '../components/ui/Spinner';
 import { EmptyState } from '../components/ui/EmptyState';
+import { PrintPreviewModal } from '../components/clinical/PrintPreviewModal';
+import { ReferralPrint } from '../components/clinical/ReferralPrint';
 import { useApiResource } from '../hooks/useApiResource';
 import { referralService } from '../services/ehr-service';
 import { formatDate, humanize } from '../utils/formatters';
+import { Patient, Referral } from '../types';
 
 const STATUS_BADGE: Record<string, string> = {
   REQUESTED: 'badge badge-info',
@@ -19,6 +22,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default function Referrals() {
   const [status, setStatus] = useState('');
+  const [printReferral, setPrintReferral] = useState<Referral | null>(null);
   const { data, loading, refetch } = useApiResource(
     () => referralService.list({ status: status || undefined }),
     [status],
@@ -92,8 +96,20 @@ export default function Referrals() {
                   </div>
                 )}
                 {r.status === 'ACCEPTED' && (
-                  <div className="mt-3">
+                  <div className="mt-3 flex gap-2">
                     <Button onClick={() => update(r.id, 'COMPLETED')}>Mark Completed</Button>
+                    {r.patient && (
+                      <Button variant="secondary" onClick={() => setPrintReferral(r)}>
+                        Print
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {(r.status === 'COMPLETED' || r.status === 'REQUESTED') && r.patient && (
+                  <div className="mt-3">
+                    <Button variant="secondary" onClick={() => setPrintReferral(r)}>
+                      Print letter
+                    </Button>
                   </div>
                 )}
               </div>
@@ -101,6 +117,16 @@ export default function Referrals() {
           </div>
         )}
       </Card>
+
+      <PrintPreviewModal
+        isOpen={Boolean(printReferral && printReferral.patient)}
+        title="Referral Letter"
+        onClose={() => setPrintReferral(null)}
+      >
+        {printReferral?.patient && (
+          <ReferralPrint patient={printReferral.patient as Patient} referral={printReferral} />
+        )}
+      </PrintPreviewModal>
     </div>
   );
 }

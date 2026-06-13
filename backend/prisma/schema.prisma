@@ -322,11 +322,13 @@ model Patient {
   problems        Problem[]
   immunizations   Immunization[]
   maternalRecords MaternalRecord[]
-  labResults      LabResult[]
-  cases           Case[]
-  referrals       Referral[]
-  consents        Consent[]
-  documents       ClinicalDocument[]
+  labResults           LabResult[]
+  medications          Medication[]
+  medicalHistoryEntries MedicalHistoryEntry[]
+  cases                Case[]
+  referrals            Referral[]
+  consents             Consent[]
+  documents            ClinicalDocument[]
 
   @@index([lastName])
   @@index([barangayId])
@@ -529,9 +531,12 @@ model LabResult {
   encounterId    String?   @db.ObjectId
   testName       String
   loincCode      String? // LOINC code for the observation (standardized lab/observation coding)
+  status         String    @default("RESULTED") // ORDERED | RESULTED | CANCELLED
   value          String?
   unit           String?
   referenceRange String?
+  orderedById    String?   @db.ObjectId
+  orderedAt      DateTime  @default(now())
   resultDate     DateTime  @default(now())
   notes          String?
   createdAt      DateTime  @default(now())
@@ -541,8 +546,51 @@ model LabResult {
 
   @@index([patientId])
   @@index([encounterId])
+  @@index([status])
   @@index([resultDate])
   @@map("lab_results")
+}
+
+// ---------------------------------------------------------------------------
+// Active medication list (longitudinal, patient-scoped)
+// ---------------------------------------------------------------------------
+model Medication {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  patientId   String    @db.ObjectId
+  encounterId String?   @db.ObjectId
+  drug        String
+  dose        String?
+  frequency   String?
+  route       String?
+  status      String    @default("ACTIVE") // ACTIVE | DISCONTINUED
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@index([status])
+  @@map("medications")
+}
+
+// ---------------------------------------------------------------------------
+// Structured medical history (PMH, surgical, family, social)
+// ---------------------------------------------------------------------------
+model MedicalHistoryEntry {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  patientId   String   @db.ObjectId
+  category    String // PMH | SURGICAL | FAMILY | SOCIAL
+  description String
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@index([category])
+  @@map("medical_history_entries")
 }
 
 // ===========================================================================

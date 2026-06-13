@@ -33,6 +33,10 @@ export const encounterRepository = {
     return prisma.encounter.create({ data, include });
   },
 
+  update(id: string, data: Prisma.EncounterUpdateInput) {
+    return prisma.encounter.update({ where: { id }, data, include });
+  },
+
   delete(id: string) {
     return prisma.encounter.delete({ where: { id } });
   },

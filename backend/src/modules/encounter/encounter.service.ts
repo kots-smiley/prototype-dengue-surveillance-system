@@ -1,10 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { encounterRepository } from './encounter.repository';
-import { CreateEncounterInput, ListEncounterQuery } from './encounter.schema';
+import { CreateEncounterInput, UpdateEncounterInput, ListEncounterQuery } from './encounter.schema';
 import { patientRepository } from '../patient/patient.repository';
 import { diseaseRepository } from '../disease/disease.repository';
 import { caseRepository } from '../case/case.repository';
 import { earlyWarningService } from '../early-warning/early-warning.service';
+import { syncMedicationsFromEncounter } from '../medication/medication.service';
+import { prisma } from '../../configuration/prisma';
 import { AppError } from '../../helper/app-error';
 import { parsePagination, buildPaginationMeta } from '../../helper/pagination';
 import { ageFromBirthDate, ageGroupFromAge } from '../../helper/age';
@@ -34,6 +36,14 @@ interface DiagnosisInput {
   isPrimary: boolean;
 }
 
+interface PrescriptionItemInput {
+  drug: string;
+  dose?: string | null;
+  frequency?: string | null;
+  duration?: string | null;
+  instructions?: string | null;
+}
+
 /**
  * Generate de-identified surveillance Cases from notifiable, confirmed
  * diagnoses recorded during an encounter. Keeps the EMR the source of truth
@@ -47,10 +57,24 @@ async function generateCasesFromDiagnoses(params: {
   encounterId: string;
   encounterDate: Date;
   reportedBy: string;
+  skipIfCaseExists?: boolean;
 }): Promise<void> {
-  const { diagnoses, patient, barangayId, facilityId, encounterId, encounterDate, reportedBy } =
-    params;
-  if (!barangayId) return; // cannot attribute a case without a barangay
+  const {
+    diagnoses,
+    patient,
+    barangayId,
+    facilityId,
+    encounterId,
+    encounterDate,
+    reportedBy,
+    skipIfCaseExists,
+  } = params;
+  if (!barangayId) return;
+
+  if (skipIfCaseExists) {
+    const existing = await caseRepository.findBySourceEncounterId(encounterId);
+    if (existing) return;
+  }
 
   const age = ageFromBirthDate(patient.birthDate, encounterDate);
   const ageGroup = ageGroupFromAge(age);
@@ -83,6 +107,86 @@ async function generateCasesFromDiagnoses(params: {
   }
 }
 
+async function recordEncounterAmendment(
+  user: AuthUser,
+  encounterId: string,
+  summary: Record<string, unknown>
+): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'ENCOUNTER_AMENDED',
+        resource: 'encounter',
+        resourceId: encounterId,
+        purposeOfUse: 'TREATMENT',
+        facilityId: user.facilityId ?? undefined,
+        details: JSON.stringify(summary),
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to record encounter amendment audit', error);
+  }
+}
+
+function buildEncounterScalars(input: CreateEncounterInput | UpdateEncounterInput) {
+  return {
+    type: input.type,
+    encounterDate: input.encounterDate,
+    chiefComplaint: input.chiefComplaint,
+    subjective: input.subjective,
+    objective: input.objective,
+    assessment: input.assessment,
+    plan: input.plan,
+  };
+}
+
+async function applyNestedEncounterData(
+  encounterId: string,
+  input: CreateEncounterInput | UpdateEncounterInput
+): Promise<void> {
+  if (input.vitalSign) {
+    const bmi = computeBmi(input.vitalSign.weight, input.vitalSign.height);
+    await prisma.vitalSign.upsert({
+      where: { encounterId },
+      create: { encounterId, ...input.vitalSign, bmi },
+      update: { ...input.vitalSign, bmi },
+    });
+  } else {
+    await prisma.vitalSign.deleteMany({ where: { encounterId } });
+  }
+
+  await prisma.diagnosis.deleteMany({ where: { encounterId } });
+  if (input.diagnoses.length > 0) {
+    await prisma.diagnosis.createMany({
+      data: input.diagnoses.map((d) => ({
+        encounterId,
+        diseaseId: d.diseaseId,
+        icd10Code: d.icd10Code,
+        snomedCode: d.snomedCode,
+        description: d.description,
+        certainty: d.certainty ?? 'CONFIRMED',
+        isPrimary: d.isPrimary ?? false,
+      })),
+    });
+  }
+
+  await prisma.prescription.deleteMany({ where: { encounterId } });
+  if (input.prescriptions.length > 0) {
+    for (const p of input.prescriptions) {
+      await prisma.prescription.create({
+        data: { encounterId, items: p.items, notes: p.notes },
+      });
+    }
+  }
+}
+
+function flattenPrescriptionItems(
+  prescriptions: CreateEncounterInput['prescriptions']
+): PrescriptionItemInput[] {
+  return prescriptions.flatMap((p) => p.items);
+}
+
 export const encounterService = {
   async list(query: ListEncounterQuery) {
     const where: Prisma.EncounterWhereInput = {};
@@ -110,7 +214,6 @@ export const encounterService = {
     if (!patient.isActive) {
       throw new AppError('Cannot create an encounter for an archived patient', 400);
     }
-    // Data Privacy Act consent gating.
     if (!patient.consentGiven) {
       throw new AppError('Patient consent is required before recording an encounter', 403);
     }
@@ -122,13 +225,8 @@ export const encounterService = {
     const data: Prisma.EncounterCreateInput = {
       patient: { connect: { id: input.patientId } },
       clinician: { connect: { id: user.id } },
-      type: input.type,
+      ...buildEncounterScalars(input),
       encounterDate,
-      chiefComplaint: input.chiefComplaint,
-      subjective: input.subjective,
-      objective: input.objective,
-      assessment: input.assessment,
-      plan: input.plan,
     };
 
     if (barangayId) data.barangay = { connect: { id: barangayId } };
@@ -160,7 +258,15 @@ export const encounterService = {
 
     const encounter = await encounterRepository.create(data);
 
-    // Auto-generate de-identified surveillance cases (non-blocking failures).
+    const rxItems = flattenPrescriptionItems(input.prescriptions);
+    if (rxItems.length > 0) {
+      try {
+        await syncMedicationsFromEncounter(patient.id, encounter.id, rxItems);
+      } catch (error) {
+        logger.error('Failed to sync medications from encounter', error);
+      }
+    }
+
     try {
       await generateCasesFromDiagnoses({
         diagnoses: input.diagnoses,
@@ -176,6 +282,64 @@ export const encounterService = {
     }
 
     return encounter;
+  },
+
+  async update(id: string, input: UpdateEncounterInput, user: AuthUser) {
+    const existing = await encounterRepository.findById(id);
+    if (!existing) {
+      throw new AppError('Encounter not found', 404);
+    }
+
+    const patient = await patientRepository.findRawById(existing.patientId);
+    if (!patient) {
+      throw new AppError('Patient not found', 404);
+    }
+
+    const barangayId = input.barangayId ?? existing.barangayId ?? patient.barangayId ?? null;
+    const facilityId = input.facilityId ?? existing.facilityId ?? user.facilityId ?? null;
+    const encounterDate = input.encounterDate ?? existing.encounterDate;
+
+    await prisma.$transaction(async () => {
+      await encounterRepository.update(id, {
+        ...buildEncounterScalars(input),
+        encounterDate,
+        ...(barangayId ? { barangay: { connect: { id: barangayId } } } : {}),
+        ...(facilityId ? { facility: { connect: { id: facilityId } } } : {}),
+      });
+      await applyNestedEncounterData(id, input);
+    });
+
+    const rxItems = flattenPrescriptionItems(input.prescriptions);
+    if (rxItems.length > 0) {
+      try {
+        await syncMedicationsFromEncounter(patient.id, id, rxItems);
+      } catch (error) {
+        logger.error('Failed to sync medications from amended encounter', error);
+      }
+    }
+
+    try {
+      await generateCasesFromDiagnoses({
+        diagnoses: input.diagnoses,
+        patient: { id: patient.id, birthDate: patient.birthDate, sex: patient.sex },
+        barangayId,
+        facilityId,
+        encounterId: id,
+        encounterDate,
+        reportedBy: user.id,
+        skipIfCaseExists: true,
+      });
+    } catch (error) {
+      logger.error('Failed to auto-generate surveillance case from amended encounter', error);
+    }
+
+    await recordEncounterAmendment(user, id, {
+      type: input.type,
+      diagnosisCount: input.diagnoses.length,
+      prescriptionCount: input.prescriptions.length,
+    });
+
+    return encounterRepository.findById(id);
   },
 
   async remove(id: string) {

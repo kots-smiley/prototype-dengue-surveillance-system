@@ -74,3 +74,25 @@ Internal records are projected to FHIR on read (no duplicate storage) by `backen
 - Every mutation and every PII read is written to `AuditLog` with `purposeOfUse` and `facilityId`.
 
 > HealthWatch remains a surveillance, early-warning, and record-keeping platform. It is NOT a medical diagnostic decision tool.
+
+## 6. Implemented clinical features (P0 + P1)
+
+| ISO 10781 function | Feature | Where implemented |
+| :--- | :--- | :--- |
+| Capture clinical data | Allergy alerts at prescribing; encounter amend with audit | `EncounterForm`, `encounter.service` |
+| Maintain medication list | Active medication list synced from encounters | `Medication` model, `/api/medications` |
+| View longitudinal data | Vital sign trends chart | `VitalTrendsChart`, patient chart |
+| Capture history | Structured PMH / surgical / family / social | `MedicalHistoryEntry`, `/api/clinical/history` |
+| Order management | Lab order workflow (ORDERED → RESULTED) | `LabResult.status`, `/api/labs` |
+| Terminology services | Live ICD-10 / LOINC search in clinical UI | `TerminologyCombobox`, `/api/terminology` |
+| Document generation | Printable prescription and referral letter | `PrintPreviewModal`, patient chart |
+| Patient access | Expanded resident portal (allergies, meds, visits) | `portal.service`, `/portal` |
+
+## 7. Capstone demo script (5 minutes)
+
+1. Open demo patient chart — note allergy banner, vital trends, active meds, pending NS1 lab order.
+2. New encounter — search ICD-10 for dengue; add a penicillin-class drug to trigger allergy warning.
+3. Enter platelet lab result — observe results list update.
+4. Edit an encounter to amend diagnosis — audit logged; no duplicate surveillance case.
+5. Print prescription and referral letter.
+6. Log in as Resident — view allergies, medications, and recent visits on the portal.

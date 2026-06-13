@@ -25,9 +25,18 @@ export const updateProblemSchema = z.object({
 
 export const listClinicalQuerySchema = z.object({
   patientId: z.string().optional(),
+  category: z.enum(['PMH', 'SURGICAL', 'FAMILY', 'SOCIAL']).optional(),
+});
+
+export const createHistorySchema = z.object({
+  patientId: z.string().min(1),
+  category: z.enum(['PMH', 'SURGICAL', 'FAMILY', 'SOCIAL']),
+  description: z.string().min(1),
+  notes: z.string().optional(),
 });
 
 export type CreateAllergyInput = z.infer<typeof createAllergySchema>;
 export type CreateProblemInput = z.infer<typeof createProblemSchema>;
 export type UpdateProblemInput = z.infer<typeof updateProblemSchema>;
 export type ListClinicalQuery = z.infer<typeof listClinicalQuerySchema>;
+export type CreateHistoryInput = z.infer<typeof createHistorySchema>;

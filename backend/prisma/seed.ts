@@ -389,20 +389,31 @@ async function seedEmr() {
     // First patient gets a full encounter with a confirmed dengue diagnosis,
     // which also produces a linked, de-identified surveillance case.
     if (seq === 1 && dengue) {
+      await prisma.allergy.create({
+        data: { patientId: patient.id, substance: 'Penicillin', reaction: 'Rash', severity: 'MODERATE' },
+      });
+
+      await prisma.medicalHistoryEntry.createMany({
+        data: [
+          { patientId: patient.id, category: 'PMH', description: 'Asthma (childhood, well controlled)' },
+          { patientId: patient.id, category: 'SOCIAL', description: 'Non-smoker; works as tricycle driver' },
+        ],
+      });
+
       const encounter = await prisma.encounter.create({
         data: {
           patientId: patient.id,
           barangayId: barangay.id,
           clinicianId: physician.id,
           type: 'CONSULT',
-          encounterDate: now,
+          encounterDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 5),
           chiefComplaint: 'Fever and body aches for 3 days',
           subjective: 'High-grade fever, retro-orbital pain, myalgia.',
           objective: 'Febrile, (+) tourniquet test, no bleeding.',
           assessment: 'Dengue fever, probable.',
           plan: 'Hydration, paracetamol, CBC monitoring, advise warning signs.',
           vitalSign: {
-            create: { systolic: 110, diastolic: 70, temperature: 38.9, heartRate: 96, respiratoryRate: 20, oxygenSat: 98 },
+            create: { systolic: 110, diastolic: 70, temperature: 38.9, heartRate: 96, respiratoryRate: 20, oxygenSat: 98, weight: 68, height: 170, bmi: 23.5 },
           },
           diagnoses: {
             create: [
@@ -412,6 +423,55 @@ async function seedEmr() {
           prescriptions: {
             create: [{ items: [{ drug: 'Paracetamol', dose: '500mg', frequency: 'every 6 hours', duration: '5 days' }] }],
           },
+        },
+      });
+
+      await prisma.medication.create({
+        data: {
+          patientId: patient.id,
+          encounterId: encounter.id,
+          drug: 'Paracetamol',
+          dose: '500mg',
+          frequency: 'every 6 hours',
+          status: 'ACTIVE',
+        },
+      });
+
+      await prisma.encounter.create({
+        data: {
+          patientId: patient.id,
+          barangayId: barangay.id,
+          clinicianId: physician.id,
+          type: 'FOLLOWUP',
+          encounterDate: now,
+          chiefComplaint: 'Follow-up dengue monitoring',
+          assessment: 'Improving; afebrile today.',
+          vitalSign: {
+            create: { systolic: 118, diastolic: 76, temperature: 37.2, heartRate: 82, respiratoryRate: 18, oxygenSat: 99, weight: 67.5, height: 170, bmi: 23.4 },
+          },
+        },
+      });
+
+      await prisma.labResult.create({
+        data: {
+          patientId: patient.id,
+          testName: 'Dengue NS1 antigen',
+          loincCode: '5404-9',
+          status: 'ORDERED',
+          orderedById: physician.id,
+        },
+      });
+
+      await prisma.labResult.create({
+        data: {
+          patientId: patient.id,
+          testName: 'Platelet count',
+          loincCode: '777-3',
+          status: 'RESULTED',
+          value: '145',
+          unit: '10*3/uL',
+          referenceRange: '150-400',
+          orderedById: physician.id,
         },
       });
 

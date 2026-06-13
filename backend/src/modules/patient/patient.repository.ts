@@ -13,6 +13,8 @@ const detailInclude = {
   registeredBy: { select: { id: true, firstName: true, lastName: true, role: true } },
   allergies: { orderBy: { createdAt: 'desc' } },
   problems: { orderBy: { createdAt: 'desc' } },
+  medications: { where: { status: 'ACTIVE' }, orderBy: { startDate: 'desc' } },
+  medicalHistoryEntries: { orderBy: { createdAt: 'desc' } },
   immunizations: { orderBy: { dateGiven: 'desc' } },
   maternalRecords: { orderBy: { visitDate: 'desc' } },
   labResults: { orderBy: { resultDate: 'desc' } },
@@ -34,6 +36,24 @@ const detailInclude = {
   },
 } satisfies Prisma.PatientInclude;
 
+const portalInclude = {
+  barangay: true,
+  homeFacility: true,
+  allergies: { orderBy: { createdAt: 'desc' as const } },
+  problems: { where: { status: 'ACTIVE' }, orderBy: { createdAt: 'desc' as const } },
+  medications: { where: { status: 'ACTIVE' }, orderBy: { startDate: 'desc' as const } },
+  immunizations: { orderBy: { dateGiven: 'desc' as const }, take: 20 },
+  labResults: { where: { status: 'RESULTED' }, orderBy: { resultDate: 'desc' as const }, take: 20 },
+  encounters: {
+    orderBy: { encounterDate: 'desc' as const },
+    take: 5,
+    include: {
+      facility: true,
+      diagnoses: { where: { isPrimary: true }, take: 1 },
+    },
+  },
+} satisfies Prisma.PatientInclude;
+
 export const patientRepository = {
   findManyPaginated(where: Prisma.PatientWhereInput, skip: number, take: number) {
     return prisma.$transaction([
@@ -50,6 +70,10 @@ export const patientRepository = {
 
   findById(id: string) {
     return prisma.patient.findUnique({ where: { id }, include: detailInclude });
+  },
+
+  findByIdForPortal(id: string) {
+    return prisma.patient.findUnique({ where: { id }, include: portalInclude });
   },
 
   findRawById(id: string) {

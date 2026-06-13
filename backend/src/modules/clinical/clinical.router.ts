@@ -5,6 +5,7 @@ import {
   createProblemSchema,
   updateProblemSchema,
   listClinicalQuerySchema,
+  createHistorySchema,
 } from './clinical.schema';
 import { validate } from '../../middleware/validate.middleware';
 import { authenticate, authorize } from '../../middleware/auth.middleware';
@@ -26,5 +27,9 @@ router.get('/problems', validate(listClinicalQuerySchema, 'query'), asyncHandler
 router.post('/problems', validate(createProblemSchema), asyncHandler(clinicalController.createProblem));
 router.put('/problems/:id', validate(updateProblemSchema), asyncHandler(clinicalController.updateProblem));
 router.delete('/problems/:id', asyncHandler(clinicalController.removeProblem));
+
+router.get('/history', validate(listClinicalQuerySchema, 'query'), asyncHandler(clinicalController.listHistory));
+router.post('/history', validate(createHistorySchema), asyncHandler(clinicalController.createHistory));
+router.delete('/history/:id', asyncHandler(clinicalController.removeHistory));
 
 export default router;

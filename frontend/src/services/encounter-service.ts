@@ -62,6 +62,10 @@ export const encounterService = {
     return apiClient<{ encounter: Encounter }>('/encounters', { method: 'POST', body: payload });
   },
 
+  update(id: string, payload: Omit<EncounterPayload, 'patientId'>) {
+    return apiClient<{ encounter: Encounter }>(`/encounters/${id}`, { method: 'PUT', body: payload });
+  },
+
   remove(id: string) {
     return apiClient<null>(`/encounters/${id}`, { method: 'DELETE' });
   },

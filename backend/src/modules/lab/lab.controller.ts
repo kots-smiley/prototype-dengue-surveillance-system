@@ -10,13 +10,18 @@ export const labController = {
   },
 
   async create(req: AuthRequest, res: Response) {
-    const record = await labService.create(req.body);
-    sendSuccess(res, { labResult: record }, 'Lab result created', 201);
+    const record = await labService.create(req.body, req.user);
+    sendSuccess(res, { labResult: record }, 'Lab order recorded', 201);
   },
 
   async update(req: AuthRequest, res: Response) {
     const record = await labService.update(req.params.id, req.body);
     sendSuccess(res, { labResult: record }, 'Lab result updated');
+  },
+
+  async cancel(req: AuthRequest, res: Response) {
+    const record = await labService.cancel(req.params.id);
+    sendSuccess(res, { labResult: record }, 'Lab order cancelled');
   },
 
   async remove(req: AuthRequest, res: Response) {

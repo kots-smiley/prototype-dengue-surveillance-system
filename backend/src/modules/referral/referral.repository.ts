@@ -2,7 +2,7 @@ import { prisma } from '../../configuration/prisma';
 import { Prisma } from '@prisma/client';
 
 const include = {
-  patient: { select: { id: true, patientCode: true, firstName: true, lastName: true } },
+  patient: { select: { id: true, patientCode: true, firstName: true, lastName: true, birthDate: true, sex: true } },
   fromFacility: true,
   toFacility: true,
 } satisfies Prisma.ReferralInclude;

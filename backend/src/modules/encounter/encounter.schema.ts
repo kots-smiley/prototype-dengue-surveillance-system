@@ -52,6 +52,8 @@ export const createEncounterSchema = z.object({
   prescriptions: z.array(prescriptionSchema).optional().default([]),
 });
 
+export const updateEncounterSchema = createEncounterSchema.omit({ patientId: true });
+
 export const listEncounterQuerySchema = z.object({
   patientId: z.string().optional(),
   type: encounterTypeEnum.optional(),
@@ -60,4 +62,5 @@ export const listEncounterQuerySchema = z.object({
 });
 
 export type CreateEncounterInput = z.infer<typeof createEncounterSchema>;
+export type UpdateEncounterInput = z.infer<typeof updateEncounterSchema>;
 export type ListEncounterQuery = z.infer<typeof listEncounterQuerySchema>;

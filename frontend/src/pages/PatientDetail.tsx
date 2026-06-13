@@ -17,19 +17,43 @@ import {
   labService,
   allergyService,
   problemService,
+  historyService,
 } from '../services/emr-program-service';
+import { medicationService } from '../services/medication-service';
 import { ageFromBirthDate, formatDate, fullName, humanize } from '../utils/formatters';
-import { ALLERGY_SEVERITY_OPTIONS, DOCUMENT_TYPE_OPTIONS, REFERRAL_PRIORITY_OPTIONS } from '../configuration/options';
-import { Encounter, Patient, Facility } from '../types';
+import {
+  ALLERGY_SEVERITY_OPTIONS,
+  DOCUMENT_TYPE_OPTIONS,
+  REFERRAL_PRIORITY_OPTIONS,
+  MEDICAL_HISTORY_CATEGORY_OPTIONS,
+} from '../configuration/options';
+import { Encounter, Patient, Facility, Referral } from '../types';
 import { facilityService } from '../services/facility-service';
 import { referralService, consentService, documentService, fhirService } from '../services/ehr-service';
 import { downloadJson } from '../utils/download-json';
+import { VitalTrendsChart } from '../components/clinical/VitalTrendsChart';
+import { PrintPreviewModal } from '../components/clinical/PrintPreviewModal';
+import { PrescriptionPrint } from '../components/clinical/PrescriptionPrint';
+import { ReferralPrint } from '../components/clinical/ReferralPrint';
+import { TerminologyCombobox } from '../components/clinical/TerminologyCombobox';
 
-type Tab = 'encounters' | 'conditions' | 'immunizations' | 'maternal' | 'labs' | 'referrals' | 'consent' | 'documents';
+type Tab =
+  | 'encounters'
+  | 'conditions'
+  | 'medications'
+  | 'history'
+  | 'immunizations'
+  | 'maternal'
+  | 'labs'
+  | 'referrals'
+  | 'consent'
+  | 'documents';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'encounters', label: 'Encounters' },
   { id: 'conditions', label: 'Allergies & Problems' },
+  { id: 'medications', label: 'Medications' },
+  { id: 'history', label: 'History' },
   { id: 'immunizations', label: 'Immunizations' },
   { id: 'maternal', label: 'Maternal' },
   { id: 'labs', label: 'Laboratory' },
@@ -118,11 +142,22 @@ export default function PatientDetail() {
         <SummaryItem label="Contact" value={patient.contactNumber ?? 'N/A'} />
         <SummaryItem label="Civil status" value={patient.civilStatus ? humanize(patient.civilStatus) : 'N/A'} />
         <SummaryItem
+          label="Active meds"
+          value={String(patient.medications?.length ?? 0)}
+        />
+        <SummaryItem
           label="Consent"
           value={patient.consentGiven ? 'On file' : 'Pending'}
           tone={patient.consentGiven ? 'success' : 'warning'}
         />
       </div>
+
+      {(patient.allergies?.length ?? 0) > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span className="font-semibold">Allergies:</span>{' '}
+          {patient.allergies!.map((a) => a.substance).join(', ')}
+        </div>
+      )}
 
       {!patient.consentGiven && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
@@ -147,8 +182,12 @@ export default function PatientDetail() {
         ))}
       </div>
 
-      {tab === 'encounters' && <EncountersTab encounters={patient.encounters ?? []} patientId={id} />}
+      {tab === 'encounters' && (
+        <EncountersTab encounters={patient.encounters ?? []} patientId={id} patient={patient} />
+      )}
       {tab === 'conditions' && <ConditionsTab patient={patient} onChange={refetch} />}
+      {tab === 'medications' && <MedicationsTab patient={patient} onChange={refetch} />}
+      {tab === 'history' && <HistoryTab patient={patient} onChange={refetch} />}
       {tab === 'immunizations' && <ImmunizationsTab patient={patient} onChange={refetch} />}
       {tab === 'maternal' && <MaternalTab patient={patient} onChange={refetch} />}
       {tab === 'labs' && <LabsTab patient={patient} onChange={refetch} />}
@@ -194,7 +233,17 @@ function SummaryItem({
   );
 }
 
-function EncountersTab({ encounters, patientId }: { encounters: Encounter[]; patientId: string }) {
+function EncountersTab({
+  encounters,
+  patientId,
+  patient,
+}: {
+  encounters: Encounter[];
+  patientId: string;
+  patient: Patient;
+}) {
+  const [printEncounter, setPrintEncounter] = useState<Encounter | null>(null);
+
   if (encounters.length === 0) {
     return (
       <Card title="Encounters">
@@ -214,8 +263,24 @@ function EncountersTab({ encounters, patientId }: { encounters: Encounter[]; pat
 
   return (
     <div className="space-y-4">
+      <VitalTrendsChart encounters={encounters} />
       {encounters.map((e) => (
-        <Card key={e.id} title={`${humanize(e.type)} · ${formatDate(e.encounterDate)}`}>
+        <Card
+          key={e.id}
+          title={`${humanize(e.type)} · ${formatDate(e.encounterDate)}`}
+          actions={
+            <div className="flex flex-wrap gap-2">
+              {(e.prescriptions?.length ?? 0) > 0 && (
+                <Button variant="secondary" onClick={() => setPrintEncounter(e)}>
+                  Print Rx
+                </Button>
+              )}
+              <Link to={`/patients/${patientId}/encounters/${e.id}/edit`}>
+                <Button variant="secondary">Edit</Button>
+              </Link>
+            </div>
+          }
+        >
           <div className="space-y-3 text-sm">
             {(e.facility || e.clinician) && (
               <p className="text-xs text-slate-500">
@@ -288,6 +353,13 @@ function EncountersTab({ encounters, patientId }: { encounters: Encounter[]; pat
           </div>
         </Card>
       ))}
+      <PrintPreviewModal
+        isOpen={Boolean(printEncounter)}
+        title="Prescription"
+        onClose={() => setPrintEncounter(null)}
+      >
+        {printEncounter && <PrescriptionPrint patient={patient} encounter={printEncounter} />}
+      </PrintPreviewModal>
     </div>
   );
 }
@@ -403,6 +475,146 @@ function ConditionsTab({ patient, onChange }: { patient: Patient; onChange: () =
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+function MedicationsTab({ patient, onChange }: { patient: Patient; onChange: () => void }) {
+  const [drug, setDrug] = useState('');
+  const [dose, setDose] = useState('');
+  const [frequency, setFrequency] = useState('');
+
+  const add = async () => {
+    if (!drug.trim()) return;
+    try {
+      await medicationService.create({
+        patientId: patient.id,
+        drug: drug.trim(),
+        dose: dose.trim() || undefined,
+        frequency: frequency.trim() || undefined,
+      });
+      setDrug('');
+      setDose('');
+      setFrequency('');
+      onChange();
+      toast.success('Medication added');
+    } catch {
+      toast.error('Failed to add medication');
+    }
+  };
+
+  const discontinue = async (medId: string) => {
+    try {
+      await medicationService.discontinue(medId);
+      onChange();
+      toast.success('Medication discontinued');
+    } catch {
+      toast.error('Failed to discontinue medication');
+    }
+  };
+
+  const active = patient.medications ?? [];
+
+  return (
+    <Card title="Active medications">
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr,1fr,1fr,auto]">
+        <Input placeholder="Drug" value={drug} onChange={(e) => setDrug(e.target.value)} />
+        <Input placeholder="Dose" value={dose} onChange={(e) => setDose(e.target.value)} />
+        <Input placeholder="Frequency" value={frequency} onChange={(e) => setFrequency(e.target.value)} />
+        <Button onClick={add}>Add</Button>
+      </div>
+      {active.length === 0 ? (
+        <p className="text-sm text-slate-500">No active medications on file.</p>
+      ) : (
+        <ul className="space-y-2">
+          {active.map((m) => (
+            <li key={m.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <span>
+                {m.drug} {m.dose ? `· ${m.dose}` : ''} {m.frequency ? `· ${m.frequency}` : ''}
+              </span>
+              <button onClick={() => discontinue(m.id)} className="text-red-600 hover:text-red-800">
+                Discontinue
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function HistoryTab({ patient, onChange }: { patient: Patient; onChange: () => void }) {
+  const [category, setCategory] = useState('PMH');
+  const [description, setDescription] = useState('');
+
+  const add = async () => {
+    if (!description.trim()) return;
+    try {
+      await historyService.create({
+        patientId: patient.id,
+        category,
+        description: description.trim(),
+      });
+      setDescription('');
+      onChange();
+      toast.success('History entry added');
+    } catch {
+      toast.error('Failed to add history entry');
+    }
+  };
+
+  const remove = async (entryId: string) => {
+    try {
+      await historyService.remove(entryId);
+      onChange();
+    } catch {
+      toast.error('Failed to remove entry');
+    }
+  };
+
+  const entries = patient.medicalHistoryEntries ?? [];
+  const grouped = MEDICAL_HISTORY_CATEGORY_OPTIONS.map((cat) => ({
+    ...cat,
+    items: entries.filter((e) => e.category === cat.value),
+  }));
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Card title="Add history entry">
+        <div className="space-y-3">
+          <Select label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            {MEDICAL_HISTORY_CATEGORY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+          <Input
+            placeholder="Description (e.g. Asthma since childhood)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <Button onClick={add}>Add entry</Button>
+        </div>
+      </Card>
+      {grouped.map((g) => (
+        <Card key={g.value} title={g.label}>
+          {g.items.length === 0 ? (
+            <p className="text-sm text-slate-500">None recorded.</p>
+          ) : (
+            <ul className="space-y-2">
+              {g.items.map((e) => (
+                <li key={e.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                  <span>{e.description}</span>
+                  <button onClick={() => remove(e.id)} className="text-red-600 hover:text-red-800">
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      ))}
     </div>
   );
 }
@@ -523,54 +735,145 @@ function MaternalTab({ patient, onChange }: { patient: Patient; onChange: () => 
 
 function LabsTab({ patient, onChange }: { patient: Patient; onChange: () => void }) {
   const [testName, setTestName] = useState('');
-  const [value, setValue] = useState('');
+  const [loincCode, setLoincCode] = useState('');
+  const [resultId, setResultId] = useState<string | null>(null);
+  const [resultValue, setResultValue] = useState('');
+  const [resultUnit, setResultUnit] = useState('');
 
-  const add = async () => {
+  const pending = (patient.labResults ?? []).filter((l) => l.status === 'ORDERED');
+  const resulted = (patient.labResults ?? []).filter((l) => l.status !== 'ORDERED');
+
+  const orderLab = async () => {
     if (!testName.trim()) return;
     try {
-      await labService.create({ patientId: patient.id, testName: testName.trim(), value: value.trim() || undefined });
+      await labService.create({
+        patientId: patient.id,
+        testName: testName.trim(),
+        loincCode: loincCode || undefined,
+        status: 'ORDERED',
+      });
       setTestName('');
-      setValue('');
+      setLoincCode('');
       onChange();
-      toast.success('Lab result added');
+      toast.success('Lab order placed');
     } catch {
-      toast.error('Failed to add lab result');
+      toast.error('Failed to order lab');
     }
   };
 
-  const remove = async (recordId: string) => {
+  const enterResult = async () => {
+    if (!resultId || !resultValue.trim()) return;
     try {
-      await labService.remove(recordId);
+      await labService.update(resultId, {
+        status: 'RESULTED',
+        value: resultValue.trim(),
+        unit: resultUnit.trim() || undefined,
+      });
+      setResultId(null);
+      setResultValue('');
+      setResultUnit('');
       onChange();
+      toast.success('Result recorded');
     } catch {
-      toast.error('Failed to remove result');
+      toast.error('Failed to record result');
+    }
+  };
+
+  const cancelOrder = async (labId: string) => {
+    try {
+      await labService.cancel(labId);
+      onChange();
+      toast.success('Order cancelled');
+    } catch {
+      toast.error('Failed to cancel order');
     }
   };
 
   return (
-    <Card title="Laboratory results">
-      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr,1fr,auto]">
-        <Input placeholder="Test name (e.g. CBC)" value={testName} onChange={(e) => setTestName(e.target.value)} />
-        <Input placeholder="Result value" value={value} onChange={(e) => setValue(e.target.value)} />
-        <Button onClick={add}>Add</Button>
-      </div>
-      {(patient.labResults?.length ?? 0) === 0 ? (
-        <p className="text-sm text-slate-500">No lab results recorded.</p>
-      ) : (
-        <ul className="space-y-2">
-          {patient.labResults!.map((l) => (
-            <li key={l.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <span>
-                {l.testName}: <span className="font-semibold">{l.value ?? '—'}</span> {l.unit ?? ''} · {formatDate(l.resultDate)}
-              </span>
-              <button onClick={() => remove(l.id)} className="text-red-600 hover:text-red-800">
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
+    <div className="space-y-4">
+      <Card title="Order lab test">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr,1fr,auto]">
+          <TerminologyCombobox
+            label="Test (LOINC search)"
+            system="LOINC"
+            value={loincCode}
+            displayValue={testName ? `${loincCode ? loincCode + ' — ' : ''}${testName}` : ''}
+            onSelect={(c) => {
+              setLoincCode(c.code);
+              setTestName(c.display);
+            }}
+            onClear={() => {
+              setLoincCode('');
+              setTestName('');
+            }}
+          />
+          <Input
+            label="Test name"
+            placeholder="Or type manually"
+            value={testName}
+            onChange={(e) => setTestName(e.target.value)}
+          />
+          <div className="flex items-end">
+            <Button onClick={orderLab}>Order</Button>
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Pending orders">
+        {pending.length === 0 ? (
+          <p className="text-sm text-slate-500">No pending lab orders.</p>
+        ) : (
+          <ul className="space-y-2">
+            {pending.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                <span>
+                  {l.testName} {l.loincCode ? `(${l.loincCode})` : ''} · ordered {formatDate(l.orderedAt ?? l.createdAt)}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setResultId(l.id);
+                      setResultValue('');
+                      setResultUnit('');
+                    }}
+                  >
+                    Enter result
+                  </Button>
+                  <button onClick={() => cancelOrder(l.id)} className="text-sm text-red-600 hover:text-red-800">
+                    Cancel
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {resultId && (
+          <div className="mt-4 grid grid-cols-1 gap-2 border-t border-slate-200 pt-4 sm:grid-cols-[1fr,1fr,auto]">
+            <Input placeholder="Result value" value={resultValue} onChange={(e) => setResultValue(e.target.value)} />
+            <Input placeholder="Unit" value={resultUnit} onChange={(e) => setResultUnit(e.target.value)} />
+            <Button onClick={enterResult}>Save result</Button>
+          </div>
+        )}
+      </Card>
+
+      <Card title="Results">
+        {resulted.length === 0 ? (
+          <p className="text-sm text-slate-500">No lab results recorded.</p>
+        ) : (
+          <ul className="space-y-2">
+            {resulted.map((l) => (
+              <li key={l.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <span>
+                  {l.testName}: <span className="font-semibold">{l.value ?? '—'}</span> {l.unit ?? ''} ·{' '}
+                  {formatDate(l.resultDate)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -579,6 +882,7 @@ function ReferralsTab({ patient, onChange }: { patient: Patient; onChange: () =>
   const [toFacilityId, setToFacilityId] = useState('');
   const [reason, setReason] = useState('');
   const [priority, setPriority] = useState('ROUTINE');
+  const [printReferral, setPrintReferral] = useState<Referral | null>(null);
 
   useEffect(() => {
     facilityService
@@ -629,16 +933,28 @@ function ReferralsTab({ patient, onChange }: { patient: Patient; onChange: () =>
       ) : (
         <ul className="space-y-2">
           {patient.referrals!.map((r) => (
-            <li key={r.id} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
-              {r.fromFacility?.name ?? '—'} → {r.toFacility?.name ?? '—'} ·{' '}
-              <span className={`badge ${r.status === 'COMPLETED' ? 'badge-success' : r.status === 'REJECTED' ? 'badge-danger' : 'badge-info'}`}>
-                {humanize(r.status)}
+            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+              <span>
+                {r.fromFacility?.name ?? '—'} → {r.toFacility?.name ?? '—'} ·{' '}
+                <span className={`badge ${r.status === 'COMPLETED' ? 'badge-success' : r.status === 'REJECTED' ? 'badge-danger' : 'badge-info'}`}>
+                  {humanize(r.status)}
+                </span>
+                <span className="ml-2 text-slate-600 dark:text-slate-400">{r.reason}</span>
               </span>
-              <span className="ml-2 text-slate-600 dark:text-slate-400">{r.reason}</span>
+              <Button variant="secondary" onClick={() => setPrintReferral(r)}>
+                Print
+              </Button>
             </li>
           ))}
         </ul>
       )}
+      <PrintPreviewModal
+        isOpen={Boolean(printReferral)}
+        title="Referral Letter"
+        onClose={() => setPrintReferral(null)}
+      >
+        {printReferral && <ReferralPrint patient={patient} referral={printReferral} />}
+      </PrintPreviewModal>
     </Card>
   );
 }

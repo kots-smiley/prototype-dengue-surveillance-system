@@ -108,6 +108,14 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="patients/:id/encounters/:encounterId/edit"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'FACILITY_ADMIN', 'PHYSICIAN', 'NURSE', 'MIDWIFE']}>
+              <EncounterForm />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="referrals"

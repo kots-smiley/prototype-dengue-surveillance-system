@@ -14,6 +14,7 @@ const fhirInclude = {
   homeFacility: true,
   allergies: true,
   problems: true,
+  medications: { where: { status: 'ACTIVE' } },
   immunizations: true,
   labResults: true,
   encounters: {
@@ -215,12 +216,25 @@ function encounterResource(e: FhirPatient['encounters'][number], patientId: stri
   };
 }
 
+function medicationStatement(med: FhirPatient['medications'][number], patientId: string): Resource {
+  return {
+    resourceType: 'MedicationStatement',
+    id: med.id,
+    status: 'active',
+    subject: { reference: `Patient/${patientId}` },
+    medicationCodeableConcept: { text: med.drug },
+    effectiveDateTime: med.startDate.toISOString(),
+    dosage: med.dose || med.frequency ? [{ text: [med.dose, med.frequency].filter(Boolean).join(' · ') }] : undefined,
+  };
+}
+
 function buildEntries(p: FhirPatient): Resource[] {
   const entries: Resource[] = [patientResource(p)];
   if (p.homeFacility) entries.push(organizationResource(p.homeFacility));
 
   for (const a of p.allergies) entries.push(allergyResource(a, p.id));
   for (const pr of p.problems) entries.push(problemCondition(pr, p.id));
+  for (const med of p.medications) entries.push(medicationStatement(med, p.id));
   for (const im of p.immunizations) entries.push(immunizationResource(im, p.id));
   for (const lab of p.labResults) entries.push(labObservation(lab, p.id));
 

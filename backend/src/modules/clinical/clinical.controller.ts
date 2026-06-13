@@ -38,4 +38,19 @@ export const clinicalController = {
     await clinicalService.removeProblem(req.params.id);
     sendSuccess(res, null, 'Problem deleted');
   },
+
+  async listHistory(req: AuthRequest, res: Response) {
+    const items = await clinicalService.listHistory(req.query);
+    sendSuccess(res, { history: items }, 'Medical history retrieved');
+  },
+
+  async createHistory(req: AuthRequest, res: Response) {
+    const record = await clinicalService.createHistory(req.body);
+    sendSuccess(res, { entry: record }, 'History entry added', 201);
+  },
+
+  async removeHistory(req: AuthRequest, res: Response) {
+    await clinicalService.removeHistory(req.params.id);
+    sendSuccess(res, null, 'History entry deleted');
+  },
 };

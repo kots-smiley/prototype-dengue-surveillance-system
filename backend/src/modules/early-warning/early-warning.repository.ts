@@ -34,6 +34,7 @@ export const earlyWarningRepository = {
     return prisma.riskReport.count({
       where: {
         barangayId,
+        status: 'APPROVED',
         dateReported: monthRange(year, month),
         OR: orConditions,
       },

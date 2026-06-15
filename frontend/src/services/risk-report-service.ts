@@ -23,6 +23,7 @@ export interface RiskReportPayload {
 export interface RiskReportListParams {
   barangayId?: string;
   category?: string;
+  status?: string;
   startDate?: string;
   endDate?: string;
   page?: number;
@@ -46,6 +47,13 @@ export const riskReportService = {
 
   update(id: string, payload: Partial<RiskReportPayload>) {
     return apiClient<{ report: RiskReport }>(`/reports/${id}`, { method: 'PUT', body: payload });
+  },
+
+  review(id: string, action: 'approve' | 'reject', rejectionReason?: string) {
+    return apiClient<{ report: RiskReport }>(`/reports/${id}/status`, {
+      method: 'PATCH',
+      body: { action, rejectionReason },
+    });
   },
 
   remove(id: string) {

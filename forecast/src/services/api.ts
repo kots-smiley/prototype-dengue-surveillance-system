@@ -9,11 +9,7 @@ interface ApiResponse<T> {
 }
 
 /** Minimal public Fetch wrapper (no auth) for the forecast site. */
-export async function apiGet<T>(endpoint: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-
+async function parseResponse<T>(response: Response): Promise<T> {
   let payload: ApiResponse<T> | null = null;
   try {
     payload = (await response.json()) as ApiResponse<T>;
@@ -25,4 +21,20 @@ export async function apiGet<T>(endpoint: string): Promise<T> {
     throw new Error(payload?.message || `Request failed (${response.status})`);
   }
   return payload.data;
+}
+
+export async function apiGet<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return parseResponse<T>(response);
+}
+
+export async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return parseResponse<T>(response);
 }

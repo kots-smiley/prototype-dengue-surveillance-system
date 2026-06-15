@@ -14,6 +14,11 @@ export const dashboardController = {
     sendSuccess(res, { trends }, 'Case trends retrieved');
   },
 
+  async weeklyTrends(req: AuthRequest, res: Response) {
+    const trends = await dashboardService.getWeeklyTrends(req.query, req.user!);
+    sendSuccess(res, { trends }, 'Weekly trends retrieved');
+  },
+
   async rankings(req: AuthRequest, res: Response) {
     const rankings = await dashboardService.getBarangayRankings(req.query);
     sendSuccess(res, { rankings }, 'Barangay rankings retrieved');

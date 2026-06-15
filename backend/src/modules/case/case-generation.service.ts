@@ -18,9 +18,26 @@ interface PatientContext {
   barangayId: string | null;
 }
 
+type CaseCertainty = 'SUSPECTED' | 'PROBABLE' | 'CONFIRMED';
+
 interface DiagnosisInput {
   diseaseId?: string;
-  certainty: 'SUSPECTED' | 'PROBABLE' | 'CONFIRMED';
+  certainty: CaseCertainty;
+}
+
+const CERTAINTY_RANK: Record<CaseCertainty, number> = {
+  SUSPECTED: 0,
+  PROBABLE: 1,
+  CONFIRMED: 2,
+};
+
+/** Pick the higher certainty when merging an encounter diagnosis with an existing case. */
+function resolveCaseStatus(current: string | undefined, diagnosisCertainty: CaseCertainty): CaseCertainty {
+  if (!current || !(current in CERTAINTY_RANK)) return diagnosisCertainty;
+  const existing = current as CaseCertainty;
+  return CERTAINTY_RANK[diagnosisCertainty] > CERTAINTY_RANK[existing]
+    ? diagnosisCertainty
+    : existing;
 }
 
 /** Find an ongoing surveillance case for the same patient and disease. */
@@ -74,10 +91,10 @@ export async function createSuspectedFromRegistration(
 }
 
 /**
- * Upsert a CONFIRMED case from a notifiable, confirmed encounter diagnosis.
- * Upgrades an existing SUSPECTED case; otherwise creates a new CONFIRMED case.
+ * Upsert a surveillance case from a notifiable encounter diagnosis.
+ * Creates a case at the diagnosis certainty level, or upgrades an existing ongoing case.
  */
-export async function upsertConfirmedFromEncounter(params: {
+export async function upsertCaseFromEncounter(params: {
   patient: PatientContext;
   diagnosis: DiagnosisInput;
   encounterId: string;
@@ -90,7 +107,7 @@ export async function upsertConfirmedFromEncounter(params: {
     params;
 
   if (!patient.barangayId) return;
-  if (!diagnosis.diseaseId || diagnosis.certainty !== 'CONFIRMED') return;
+  if (!diagnosis.diseaseId) return;
 
   const disease = await diseaseRepository.findById(diagnosis.diseaseId);
   if (!disease || !disease.isNotifiable || !disease.isActive) return;
@@ -102,19 +119,24 @@ export async function upsertConfirmedFromEncounter(params: {
 
   const age = ageFromBirthDate(patient.birthDate, encounterDate);
   const ageGroup = ageGroupFromAge(age);
+  const status = diagnosis.certainty;
 
   const ongoing = await findOngoingCase(patient.id, diagnosis.diseaseId);
 
   if (ongoing) {
+    const nextStatus = resolveCaseStatus(ongoing.status, status);
+    const upgraded = nextStatus !== ongoing.status;
     await caseRepository.update(ongoing.id, {
-      status: 'CONFIRMED',
+      status: nextStatus,
       sourceEncounterId: encounterId,
       dateReported: encounterDate,
       age,
       ageGroup,
       sex: patient.sex ?? undefined,
       facilityId: facilityId ?? undefined,
-      notes: `Upgraded to CONFIRMED from EMR encounter ${encounterId}.`,
+      notes: upgraded
+        ? `Upgraded to ${nextStatus} from EMR encounter ${encounterId}.`
+        : `Linked to EMR encounter ${encounterId}.`,
     });
   } else {
     await caseRepository.create({
@@ -129,7 +151,7 @@ export async function upsertConfirmedFromEncounter(params: {
       age,
       ageGroup,
       sex: patient.sex ?? undefined,
-      status: 'CONFIRMED',
+      status,
       outcome: 'ONGOING',
       source: 'RHU',
       notes: `Auto-generated from EMR encounter ${encounterId}.`,
@@ -139,7 +161,7 @@ export async function upsertConfirmedFromEncounter(params: {
   scheduleEarlyWarning(patient.barangayId, diagnosis.diseaseId);
 }
 
-/** Process all diagnoses from an encounter and upsert confirmed cases. */
+/** Process all diagnoses from an encounter and upsert surveillance cases. */
 export async function generateCasesFromEncounterDiagnoses(params: {
   diagnoses: DiagnosisInput[];
   patient: PatientContext;
@@ -154,7 +176,7 @@ export async function generateCasesFromEncounterDiagnoses(params: {
   if (!patient.barangayId) return;
 
   for (const dx of params.diagnoses) {
-    await upsertConfirmedFromEncounter({
+    await upsertCaseFromEncounter({
       patient,
       diagnosis: dx,
       encounterId: params.encounterId,

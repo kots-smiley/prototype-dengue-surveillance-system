@@ -111,9 +111,15 @@ export interface Case {
 export interface RiskReport {
   id: string;
   barangayId: string;
-  reportedBy: string;
+  reportedBy?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  source: 'STAFF' | 'RESIDENT';
   category: 'VECTOR_BORNE' | 'WATER_BORNE' | 'AIRBORNE';
   dateReported: string;
+  submittedByName?: string | null;
+  submittedByContact?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
   stagnantWater: boolean;
   poorWasteDisposal: boolean;
   cloggedDrainage: boolean;
@@ -128,7 +134,8 @@ export interface RiskReport {
   photoUrl?: string | null;
   notes?: string | null;
   barangay?: Barangay;
-  reporter?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
+  reporter?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'> | null;
+  reviewer?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'> | null;
 }
 
 export interface Alert {
@@ -179,10 +186,22 @@ export interface DashboardStats {
   currentMonthCases: number;
   previousMonthCases: number;
   caseIncrease: number;
+  currentWeekCases: number;
+  previousWeekCases: number;
+  weekCaseIncrease: number;
+  currentWeekReports: number;
+  previousWeekReports: number;
+  weekReportIncrease: number;
   totalBarangays: number;
   totalDiseases: number;
   activeAlerts: number;
   totalReports: number;
+}
+
+export interface WeeklyTrend {
+  week: string;
+  cases: number;
+  reports: number;
 }
 
 export interface CaseTrend {

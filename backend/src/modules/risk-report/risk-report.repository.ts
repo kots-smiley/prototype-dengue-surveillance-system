@@ -6,6 +6,9 @@ const include = {
   reporter: {
     select: { id: true, firstName: true, lastName: true, email: true },
   },
+  reviewer: {
+    select: { id: true, firstName: true, lastName: true, email: true },
+  },
 } satisfies Prisma.RiskReportInclude;
 
 export const riskReportRepository = {

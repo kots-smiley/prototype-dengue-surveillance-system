@@ -1,6 +1,6 @@
 import { Encounter, Patient } from '../../types';
 import { formatDate, fullName, humanize } from '../../utils/formatters';
-import { BrandLogo } from '../common/BrandLogo';
+import { APP_LOCATION, APP_NAME } from '../../configuration/constants';
 
 export function PrescriptionPrint({
   patient,
@@ -15,27 +15,52 @@ export function PrescriptionPrint({
     : 'Attending physician';
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-        <BrandLogo size="md" showText />
+    <div className="print-doc">
+      <header className="print-header">
+        <img
+          src="/lopez-seal.png"
+          alt=""
+          className="print-logo"
+          width={48}
+          height={48}
+        />
+        <div>
+          <p className="print-org-name">{APP_NAME}</p>
+          <p className="print-org-location">{APP_LOCATION}</p>
+        </div>
+      </header>
+
+      <div className="print-title-row">
+        <h1 className="print-title">Prescription</h1>
+        <div className="print-meta">
+          {encounter.facility?.name ?? 'Health facility'}
+          <br />
+          {formatDate(encounter.encounterDate)}
+        </div>
       </div>
-      <h1>Prescription</h1>
-      <div className="meta">
-        {encounter.facility?.name ?? 'Health facility'} · {formatDate(encounter.encounterDate)}
-      </div>
-      <p>
-        <strong>Patient:</strong> {fullName(patient)} ({patient.patientCode})
-      </p>
-      <p>
-        <strong>Age/Sex:</strong> {patient.birthDate ? formatDate(patient.birthDate) : '—'} ·{' '}
-        {humanize(patient.sex)}
-      </p>
-      {encounter.chiefComplaint && (
-        <p>
-          <strong>Chief complaint:</strong> {encounter.chiefComplaint}
-        </p>
-      )}
-      <table>
+
+      <section className="print-section">
+        <div className="print-panel">
+          <div className="print-grid">
+            <span className="print-label">Patient</span>
+            <span className="print-value">
+              {fullName(patient)} ({patient.patientCode})
+            </span>
+            <span className="print-label">Age / Sex</span>
+            <span className="print-value">
+              {patient.birthDate ? formatDate(patient.birthDate) : '—'} · {humanize(patient.sex)}
+            </span>
+            {encounter.chiefComplaint && (
+              <>
+                <span className="print-label">Chief complaint</span>
+                <span className="print-value">{encounter.chiefComplaint}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <table className="print-table">
         <thead>
           <tr>
             <th>Drug</th>
@@ -57,7 +82,11 @@ export function PrescriptionPrint({
           ))}
         </tbody>
       </table>
-      <div className="sig">Prescriber: {clinician}</div>
+
+      <footer className="print-signature">
+        <div>Prescriber: {clinician}</div>
+        <div className="print-signature-line" />
+      </footer>
     </div>
   );
 }

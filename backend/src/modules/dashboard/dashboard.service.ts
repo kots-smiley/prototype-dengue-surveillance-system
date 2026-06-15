@@ -1,11 +1,25 @@
 import { Prisma } from '@prisma/client';
 import { dashboardRepository } from './dashboard.repository';
-import { StatsQuery, TrendsQuery, RankingsQuery } from './dashboard.schema';
+import { StatsQuery, TrendsQuery, WeeklyTrendsQuery, RankingsQuery } from './dashboard.schema';
 import { AuthUser } from '../../types';
+import { addDays, buildWeeklyBuckets, startOfWeekMonday } from '../../helper/week';
+import { RiskReportStatus } from '../../configuration/constants';
 
 function scopeByRole(user: AuthUser, barangayId?: string): string | undefined {
   if (user.role === 'BHW' && user.barangayId) return user.barangayId;
   return barangayId;
+}
+
+function buildScopedFilters(query: StatsQuery | WeeklyTrendsQuery, user: AuthUser) {
+  const scopedBarangay = scopeByRole(user, query.barangayId);
+  const caseWhere: Prisma.CaseWhereInput = {};
+  if (scopedBarangay) caseWhere.barangayId = scopedBarangay;
+  if (query.diseaseId) caseWhere.diseaseId = query.diseaseId;
+
+  const reportWhere: Prisma.RiskReportWhereInput = { status: RiskReportStatus.APPROVED };
+  if (scopedBarangay) reportWhere.barangayId = scopedBarangay;
+
+  return { caseWhere, reportWhere };
 }
 
 export const dashboardService = {
@@ -14,20 +28,21 @@ export const dashboardService = {
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const thisWeekStart = startOfWeekMonday(now);
+    const previousWeekStart = addDays(thisWeekStart, -7);
+    const previousWeekEnd = addDays(thisWeekStart, -1);
 
-    const scopedBarangay = scopeByRole(user, query.barangayId);
-    const baseCaseWhere: Prisma.CaseWhereInput = {};
-    if (scopedBarangay) baseCaseWhere.barangayId = scopedBarangay;
-    if (query.diseaseId) baseCaseWhere.diseaseId = query.diseaseId;
+    const { caseWhere: baseCaseWhere, reportWhere: baseReportWhere } = buildScopedFilters(query, user);
 
     const alertWhere: Prisma.AlertWhereInput = { status: 'ACTIVE' };
+    const scopedBarangay = scopeByRole(user, query.barangayId);
     if (scopedBarangay) alertWhere.barangayId = scopedBarangay;
     if (query.diseaseId) alertWhere.diseaseId = query.diseaseId;
 
     const reportWhere: Prisma.RiskReportWhereInput = {
+      ...baseReportWhere,
       dateReported: { gte: currentMonthStart },
     };
-    if (scopedBarangay) reportWhere.barangayId = scopedBarangay;
 
     const [
       totalCases,
@@ -37,6 +52,10 @@ export const dashboardService = {
       totalDiseases,
       activeAlerts,
       totalReports,
+      currentWeekCases,
+      previousWeekCases,
+      currentWeekReports,
+      previousWeekReports,
     ] = await Promise.all([
       dashboardRepository.countCases(baseCaseWhere),
       dashboardRepository.countCases({
@@ -51,6 +70,22 @@ export const dashboardService = {
       dashboardRepository.countDiseases({ isActive: true }),
       dashboardRepository.countAlerts(alertWhere),
       dashboardRepository.countReports(reportWhere),
+      dashboardRepository.countCases({
+        ...baseCaseWhere,
+        dateReported: { gte: thisWeekStart },
+      }),
+      dashboardRepository.countCases({
+        ...baseCaseWhere,
+        dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
+      }),
+      dashboardRepository.countReports({
+        ...baseReportWhere,
+        dateReported: { gte: thisWeekStart },
+      }),
+      dashboardRepository.countReports({
+        ...baseReportWhere,
+        dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
+      }),
     ]);
 
     const caseIncrease =
@@ -60,16 +95,59 @@ export const dashboardService = {
           ? 100
           : 0;
 
+    const weekCaseIncrease =
+      previousWeekCases > 0
+        ? ((currentWeekCases - previousWeekCases) / previousWeekCases) * 100
+        : currentWeekCases > 0
+          ? 100
+          : 0;
+
+    const weekReportIncrease =
+      previousWeekReports > 0
+        ? ((currentWeekReports - previousWeekReports) / previousWeekReports) * 100
+        : currentWeekReports > 0
+          ? 100
+          : 0;
+
     return {
       totalCases,
       currentMonthCases,
       previousMonthCases,
       caseIncrease: parseFloat(caseIncrease.toFixed(2)),
+      currentWeekCases,
+      previousWeekCases,
+      weekCaseIncrease: parseFloat(weekCaseIncrease.toFixed(2)),
+      currentWeekReports,
+      previousWeekReports,
+      weekReportIncrease: parseFloat(weekReportIncrease.toFixed(2)),
       totalBarangays,
       totalDiseases,
       activeAlerts,
       totalReports,
     };
+  },
+
+  async getWeeklyTrends(query: WeeklyTrendsQuery, user: AuthUser) {
+    const weeksCount = Math.min(52, Math.max(4, parseInt(query.weeks ?? '12', 10) || 12));
+    const { caseWhere, reportWhere } = buildScopedFilters(query, user);
+    const buckets = buildWeeklyBuckets(weeksCount);
+
+    const trends = [];
+    for (const bucket of buckets) {
+      const [cases, reports] = await Promise.all([
+        dashboardRepository.countCases({
+          ...caseWhere,
+          dateReported: { gte: bucket.start, lt: bucket.end },
+        }),
+        dashboardRepository.countReports({
+          ...reportWhere,
+          dateReported: { gte: bucket.start, lt: bucket.end },
+        }),
+      ]);
+      trends.push({ week: bucket.label, cases, reports });
+    }
+
+    return trends;
   },
 
   async getCaseTrends(query: TrendsQuery, user: AuthUser) {
@@ -118,6 +196,7 @@ export const dashboardService = {
         const [caseCount, reportCount, activeAlerts] = await Promise.all([
           dashboardRepository.countCases(caseWhere),
           dashboardRepository.countReports({
+            status: 'APPROVED',
             barangayId: b.id,
             dateReported: { gte: startDate, lte: endDate },
           }),

@@ -1,26 +1,14 @@
 import { Prisma } from '@prisma/client';
 import { publicRepository } from './public.repository';
 import { ForecastQuery, TimeSeriesQuery } from './public.schema';
+import { SubmitPublicReportInput } from '../risk-report/risk-report.schema';
+import { riskReportRepository } from '../risk-report/risk-report.repository';
+import { barangayRepository } from '../barangay/barangay.repository';
+import { AppError } from '../../helper/app-error';
+import { RiskReportStatus, RiskReportSource } from '../../configuration/constants';
+import { addDays, buildWeeklyBuckets, formatShortDate, startOfWeekMonday } from '../../helper/week';
 
-// --- date helpers ---------------------------------------------------------
-function startOfWeekMonday(d: Date): Date {
-  const date = new Date(d);
-  const day = date.getDay(); // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day;
-  date.setDate(date.getDate() + diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function addDays(d: Date, days: number): Date {
-  const date = new Date(d);
-  date.setDate(date.getDate() + days);
-  return date;
-}
-
-function formatShortDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+const approvedReportsOnly = { status: RiskReportStatus.APPROVED };
 
 // --- simple statistics (rule-based, NOT ML) -------------------------------
 function linearRegressionPredict(values: number[], horizon: number): number[] {
@@ -57,26 +45,77 @@ export const publicService = {
     return publicRepository.listActiveDiseases();
   },
 
+  async listBarangays() {
+    const barangays = await publicRepository.listBarangays();
+    return barangays.map((b) => ({
+      id: b.id,
+      name: b.name,
+      municipality: b.municipality,
+      province: b.province,
+    }));
+  },
+
+  async submitReport(input: SubmitPublicReportInput) {
+    const barangay = await barangayRepository.findById(input.barangayId);
+    if (!barangay) {
+      throw new AppError('Barangay not found', 404);
+    }
+
+    const { barangayId, submittedByName, submittedByContact, ...rest } = input;
+    return riskReportRepository.create({
+      ...rest,
+      status: RiskReportStatus.PENDING,
+      source: RiskReportSource.RESIDENT,
+      dateReported: new Date(),
+      submittedByName: submittedByName?.trim() || undefined,
+      submittedByContact: submittedByContact?.trim() || undefined,
+      barangay: { connect: { id: barangayId } },
+    });
+  },
+
   async getStats(diseaseId?: string) {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const thisWeekStart = startOfWeekMonday(now);
+    const previousWeekStart = addDays(thisWeekStart, -7);
+    const previousWeekEnd = addDays(thisWeekStart, -1);
 
     const base: Prisma.CaseWhereInput = diseaseId ? { diseaseId } : {};
 
-    const [totalCases, currentMonthCases, previousMonthCases, totalBarangays, activeAlerts, totalReports] =
-      await Promise.all([
-        publicRepository.countCases(base),
-        publicRepository.countCases({ ...base, dateReported: { gte: currentMonthStart } }),
-        publicRepository.countCases({
-          ...base,
-          dateReported: { gte: previousMonthStart, lte: previousMonthEnd },
-        }),
-        publicRepository.countBarangays(),
-        publicRepository.countActiveAlerts(),
-        publicRepository.countReports({ dateReported: { gte: currentMonthStart } }),
-      ]);
+    const [
+      totalCases,
+      currentMonthCases,
+      previousMonthCases,
+      totalBarangays,
+      activeAlerts,
+      totalReports,
+      currentWeekCases,
+      previousWeekCases,
+      currentWeekReports,
+      previousWeekReports,
+    ] = await Promise.all([
+      publicRepository.countCases(base),
+      publicRepository.countCases({ ...base, dateReported: { gte: currentMonthStart } }),
+      publicRepository.countCases({
+        ...base,
+        dateReported: { gte: previousMonthStart, lte: previousMonthEnd },
+      }),
+      publicRepository.countBarangays(),
+      publicRepository.countActiveAlerts(),
+      publicRepository.countReports({ ...approvedReportsOnly, dateReported: { gte: currentMonthStart } }),
+      publicRepository.countCases({ ...base, dateReported: { gte: thisWeekStart } }),
+      publicRepository.countCases({
+        ...base,
+        dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
+      }),
+      publicRepository.countReports({ ...approvedReportsOnly, dateReported: { gte: thisWeekStart } }),
+      publicRepository.countReports({
+        ...approvedReportsOnly,
+        dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
+      }),
+    ]);
 
     const caseIncrease =
       previousMonthCases > 0
@@ -85,11 +124,31 @@ export const publicService = {
           ? 100
           : 0;
 
+    const weekCaseIncrease =
+      previousWeekCases > 0
+        ? ((currentWeekCases - previousWeekCases) / previousWeekCases) * 100
+        : currentWeekCases > 0
+          ? 100
+          : 0;
+
+    const weekReportIncrease =
+      previousWeekReports > 0
+        ? ((currentWeekReports - previousWeekReports) / previousWeekReports) * 100
+        : currentWeekReports > 0
+          ? 100
+          : 0;
+
     return {
       totalCases,
       currentMonthCases,
       previousMonthCases,
       caseIncrease: parseFloat(caseIncrease.toFixed(2)),
+      currentWeekCases,
+      previousWeekCases,
+      weekCaseIncrease: parseFloat(weekCaseIncrease.toFixed(2)),
+      currentWeekReports,
+      previousWeekReports,
+      weekReportIncrease: parseFloat(weekReportIncrease.toFixed(2)),
       totalBarangays,
       activeAlerts,
       totalReports,
@@ -133,25 +192,23 @@ export const publicService = {
     const sevenDaysAgo = addDays(now, -7);
     const thisWeekStart = startOfWeekMonday(now);
 
-    // Historical weekly buckets
-    const buckets = Array.from({ length: weeksCount }, (_, idx) => {
-      const start = addDays(thisWeekStart, -(weeksCount - 1 - idx) * 7);
-      const end = addDays(start, 7);
-      return {
-        start,
-        end,
-        label: `${formatShortDate(start)}-${formatShortDate(addDays(end, -1))}`,
-      };
-    });
+    const buckets = buildWeeklyBuckets(weeksCount, now);
 
     const weeklyCases: number[] = [];
+    const weeklyReports: number[] = [];
     for (const b of buckets) {
-      weeklyCases.push(
-        await publicRepository.countCases({
+      const [cases, reports] = await Promise.all([
+        publicRepository.countCases({
           ...diseaseFilter,
           dateReported: { gte: b.start, lt: b.end },
-        })
-      );
+        }),
+        publicRepository.countReports({
+          ...approvedReportsOnly,
+          dateReported: { gte: b.start, lt: b.end },
+        }),
+      ]);
+      weeklyCases.push(cases);
+      weeklyReports.push(reports);
     }
 
     // Forecast next 4 weeks with conservative bounds
@@ -172,9 +229,11 @@ export const publicService = {
       };
     });
 
-    const [activeCases, totalCasesThisMonth] = await Promise.all([
+    const [activeCases, totalCasesThisMonth, currentWeekCases, currentWeekReports] = await Promise.all([
       publicRepository.countCases({ ...diseaseFilter, dateReported: { gte: sevenDaysAgo } }),
       publicRepository.countCases({ ...diseaseFilter, dateReported: { gte: monthStart } }),
+      publicRepository.countCases({ ...diseaseFilter, dateReported: { gte: thisWeekStart } }),
+      publicRepository.countReports({ ...approvedReportsOnly, dateReported: { gte: thisWeekStart } }),
     ]);
 
     // Regional risk assessment (last 30 days)
@@ -192,7 +251,11 @@ export const publicService = {
       };
       const [cases30, reports30, activeAlertCount, thisWeekCases, prevWeekCases] = await Promise.all([
         publicRepository.countCases(caseWhere),
-        publicRepository.countReports({ barangayId: b.id, dateReported: { gte: riskWindowStart } }),
+        publicRepository.countReports({
+          ...approvedReportsOnly,
+          barangayId: b.id,
+          dateReported: { gte: riskWindowStart },
+        }),
         publicRepository.countActiveAlertsForBarangay(b.id, query.diseaseId),
         publicRepository.countCases({
           ...diseaseFilter,
@@ -246,10 +309,16 @@ export const publicService = {
       stats: {
         activeCases,
         totalCasesThisMonth,
+        currentWeekCases,
+        currentWeekReports,
         forecastNextWeek: forecast[0]?.cases ?? 0,
         criticalRegions,
       },
-      weeklyTrends: buckets.map((b, idx) => ({ week: b.label, cases: weeklyCases[idx] })),
+      weeklyTrends: buckets.map((b, idx) => ({
+        week: b.label,
+        cases: weeklyCases[idx],
+        reports: weeklyReports[idx],
+      })),
       forecastNext4Weeks: forecast,
       regionalRiskAssessment: regionalRisk,
       activeAlerts: alerts.map((a) => ({

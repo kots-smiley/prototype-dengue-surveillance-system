@@ -2,6 +2,7 @@ import { apiClient, buildQuery } from '../utils/api-client';
 import {
   DashboardStats,
   CaseTrend,
+  WeeklyTrend,
   BarangayRanking,
   DiseaseBreakdown,
   BarangayCaseData,
@@ -19,6 +20,10 @@ export const dashboardService = {
 
   trends(params: ScopeParams & { months?: number } = {}) {
     return apiClient<{ trends: CaseTrend[] }>(`/dashboard/trends${buildQuery(params)}`);
+  },
+
+  weeklyTrends(params: ScopeParams & { weeks?: number } = {}) {
+    return apiClient<{ trends: WeeklyTrend[] }>(`/dashboard/weekly-trends${buildQuery(params)}`);
   },
 
   rankings(params: { year?: number; limit?: number; diseaseId?: string } = {}) {

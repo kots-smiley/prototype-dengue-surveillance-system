@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { apiGet } from '../services/api';
 import { BrandLogo } from '../components/BrandLogo';
+import { ResidentReportForm } from '../components/ResidentReportForm';
 
 type RiskLevelUi = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -30,10 +31,12 @@ interface Summary {
   stats: {
     activeCases: number;
     totalCasesThisMonth: number;
+    currentWeekCases: number;
+    currentWeekReports: number;
     forecastNextWeek: number;
     criticalRegions: number;
   };
-  weeklyTrends: Array<{ week: string; cases: number }>;
+  weeklyTrends: Array<{ week: string; cases: number; reports: number }>;
   forecastNext4Weeks: Array<{ week: string; cases: number; lower: number; upper: number }>;
   regionalRiskAssessment: Array<{
     id: string;
@@ -134,29 +137,12 @@ export default function ForecastDashboard() {
 
   const selectedDiseaseName = diseases.find((d) => d.id === diseaseId)?.name ?? 'All Diseases';
 
-  if (loading) {
-    return <div className="text-center py-10 text-gray-600">Loading forecast...</div>;
-  }
-
-  if (error || !summary) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="card border border-red-200">
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Unable to load forecast</h1>
-          <p className="text-sm text-gray-700">{error || 'Unknown error'}</p>
-          <p className="text-xs text-gray-500 mt-3">
-            Tip: ensure the backend is running and VITE_API_URL points to it.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const forecastChartData = summary.forecastNext4Weeks.map((d) => ({
-    ...d,
-    lowerBand: d.lower,
-    upperBand: d.upper,
-  }));
+  const forecastChartData =
+    summary?.forecastNext4Weeks.map((d) => ({
+      ...d,
+      lowerBand: d.lower,
+      upperBand: d.upper,
+    })) ?? [];
 
   const weekTick = (label: string) => (isMobile ? label.split('-')[0] || label : label);
 
@@ -206,6 +192,20 @@ export default function ForecastDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 min-w-0">
+        {loading && <div className="text-center py-6 text-gray-600">Loading forecast...</div>}
+
+        {!loading && (error || !summary) && (
+          <div className="card border border-red-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Unable to load forecast</h2>
+            <p className="text-sm text-gray-700">{error || 'Unknown error'}</p>
+            <p className="text-xs text-gray-500 mt-3">
+              Tip: ensure the backend is running and VITE_API_URL points to it.
+            </p>
+          </div>
+        )}
+
+        {!loading && summary && (
+          <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Active Cases" hint="Last 7 days" value={summary.stats.activeCases} accent="bg-blue-500" />
           <StatCard
@@ -225,6 +225,21 @@ export default function ForecastDashboard() {
             hint="Barangays at high risk"
             value={summary.stats.criticalRegions}
             accent="bg-red-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatCard
+            label="Cases This Week"
+            hint="Since Monday"
+            value={summary.stats.currentWeekCases}
+            accent="bg-teal-500"
+          />
+          <StatCard
+            label="Risk Reports This Week"
+            hint="Approved reports since Monday"
+            value={summary.stats.currentWeekReports}
+            accent="bg-indigo-500"
           />
         </div>
 
@@ -284,6 +299,7 @@ export default function ForecastDashboard() {
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: isMobile ? 11 : 12 }} />
                 <Bar dataKey="cases" name="Cases" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="reports" name="Risk reports" fill="#6366f1" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -347,6 +363,10 @@ export default function ForecastDashboard() {
             </div>
           </div>
         </div>
+          </>
+        )}
+
+        <ResidentReportForm />
       </main>
     </div>
   );

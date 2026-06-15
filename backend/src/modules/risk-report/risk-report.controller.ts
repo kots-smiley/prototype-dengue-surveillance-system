@@ -24,6 +24,11 @@ export const riskReportController = {
     sendSuccess(res, { report }, 'Risk report updated');
   },
 
+  async review(req: AuthRequest, res: Response) {
+    const report = await riskReportService.review(req.params.id, req.body, req.user!);
+    sendSuccess(res, { report }, 'Risk report reviewed');
+  },
+
   async remove(req: AuthRequest, res: Response) {
     await riskReportService.remove(req.params.id);
     sendSuccess(res, null, 'Risk report deleted');

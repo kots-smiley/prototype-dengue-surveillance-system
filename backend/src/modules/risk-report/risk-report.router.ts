@@ -4,6 +4,7 @@ import {
   createRiskReportSchema,
   updateRiskReportSchema,
   listRiskReportQuerySchema,
+  reviewRiskReportSchema,
 } from './risk-report.schema';
 import { validate } from '../../middleware/validate.middleware';
 import { authenticate, authorize } from '../../middleware/auth.middleware';
@@ -26,6 +27,13 @@ router.post(
   authorize(UserRole.ADMIN, UserRole.BHW),
   validate(createRiskReportSchema),
   asyncHandler(riskReportController.create)
+);
+
+router.patch(
+  '/:id/status',
+  authorize(UserRole.ADMIN, UserRole.HEALTH_OFFICER, UserRole.BHW),
+  validate(reviewRiskReportSchema),
+  asyncHandler(riskReportController.review)
 );
 
 router.put(

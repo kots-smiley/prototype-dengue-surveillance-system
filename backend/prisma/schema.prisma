@@ -31,7 +31,8 @@ model User {
   barangay           Barangay?         @relation(fields: [barangayId], references: [id])
   facility           Facility?         @relation(fields: [facilityId], references: [id])
   cases              Case[]
-  reports            RiskReport[]
+  reports            RiskReport[] @relation("RiskReportReporter")
+  reviewedReports    RiskReport[] @relation("RiskReportReviewer")
   alerts             Alert[]
   auditLogs          AuditLog[]
   feedbackThreads    FeedbackThread[]  @relation("FeedbackThreadCreator")
@@ -141,9 +142,16 @@ model Case {
 model RiskReport {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   barangayId   String   @db.ObjectId
-  reportedBy   String   @db.ObjectId
+  reportedBy   String?  @db.ObjectId
+  status       String   @default("APPROVED") // PENDING | APPROVED | REJECTED
+  source       String   @default("STAFF") // STAFF | RESIDENT
   category     String // VECTOR_BORNE | WATER_BORNE | AIRBORNE
   dateReported DateTime @default(now())
+  submittedByName    String?
+  submittedByContact String?
+  reviewedBy         String?   @db.ObjectId
+  reviewedAt         DateTime?
+  rejectionReason    String?
 
   // Vector-borne factors (e.g. dengue, malaria)
   stagnantWater     Boolean @default(false)
@@ -168,11 +176,14 @@ model RiskReport {
   updatedAt DateTime @updatedAt
 
   barangay Barangay @relation(fields: [barangayId], references: [id])
-  reporter User     @relation(fields: [reportedBy], references: [id])
+  reporter User?    @relation("RiskReportReporter", fields: [reportedBy], references: [id])
+  reviewer User?    @relation("RiskReportReviewer", fields: [reviewedBy], references: [id])
 
   @@index([barangayId])
   @@index([category])
   @@index([dateReported])
+  @@index([status])
+  @@index([source])
   @@map("risk_reports")
 }
 

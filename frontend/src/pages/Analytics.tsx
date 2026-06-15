@@ -73,7 +73,9 @@ export default function Analytics() {
   const { data, loading, refreshing } = useApiResource(
     () =>
       Promise.all([
+        dashboardService.stats({ diseaseId: diseaseId || undefined }),
         dashboardService.trends({ diseaseId: diseaseId || undefined, months }),
+        dashboardService.weeklyTrends({ diseaseId: diseaseId || undefined, weeks: 12 }),
         dashboardService.rankings({ diseaseId: diseaseId || undefined, limit: 10 }),
         dashboardService.diseaseBreakdown(),
         predictionService.getPredictions({
@@ -92,7 +94,7 @@ export default function Analytics() {
 
   const chartData = useMemo(() => {
     if (!data) return [];
-    const predictions = data[3].data;
+    const predictions = data[5].data;
     const historical = predictions.historical.map((h) => ({
       label: h.label,
       actual: h.cases,
@@ -114,8 +116,10 @@ export default function Analytics() {
     return <Spinner label="Running predictive analysis..." />;
   }
 
-  const [trendsRes, rankingsRes, breakdownRes, predictionsRes, barangayPredRes] = data;
+  const [statsRes, trendsRes, weeklyRes, rankingsRes, breakdownRes, predictionsRes, barangayPredRes] = data;
+  const stats = statsRes.data.stats;
   const trends = trendsRes.data.trends;
+  const weeklyTrends = weeklyRes.data.trends;
   const rankings = rankingsRes.data.rankings;
   const breakdown = breakdownRes.data.breakdown;
   const predictions = predictionsRes.data;
@@ -186,6 +190,17 @@ export default function Analytics() {
           tone={predictions.summary.thresholdBreach ? 'danger' : 'success'}
         />
         <StatCard
+          label="Cases this week"
+          value={stats.currentWeekCases}
+          hint={`${stats.weekCaseIncrease >= 0 ? '+' : ''}${stats.weekCaseIncrease}% vs last week`}
+          tone={stats.weekCaseIncrease > 0 ? 'danger' : 'success'}
+        />
+        <StatCard
+          label="Risk reports this week"
+          value={stats.currentWeekReports}
+          hint={`${stats.weekReportIncrease >= 0 ? '+' : ''}${stats.weekReportIncrease}% vs last week`}
+        />
+        <StatCard
           label="Seasonal model"
           value={predictions.model.seasonal ? 'Enabled (S=12)' : 'Not applied'}
           hint={
@@ -242,6 +257,20 @@ export default function Analytics() {
               dot={{ r: 3 }}
             />
           </AreaChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card title="Weekly surveillance activity" subtitle="Cases and approved risk reports by week (last 12 weeks).">
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={weeklyTrends} margin={{ top: 10, right: 20, left: 0, bottom: 60 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="week" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 10 }} />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="cases" name="Cases" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="reports" name="Risk reports" fill="#6366f1" radius={[4, 4, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </Card>
 

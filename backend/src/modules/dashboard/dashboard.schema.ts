@@ -11,6 +11,12 @@ export const trendsQuerySchema = z.object({
   barangayId: z.string().optional(),
 });
 
+export const weeklyTrendsQuerySchema = z.object({
+  weeks: z.string().optional(),
+  diseaseId: z.string().optional(),
+  barangayId: z.string().optional(),
+});
+
 export const rankingsQuerySchema = z.object({
   year: z.string().optional(),
   limit: z.string().optional(),
@@ -19,4 +25,5 @@ export const rankingsQuerySchema = z.object({
 
 export type StatsQuery = z.infer<typeof statsQuerySchema>;
 export type TrendsQuery = z.infer<typeof trendsQuerySchema>;
+export type WeeklyTrendsQuery = z.infer<typeof weeklyTrendsQuerySchema>;
 export type RankingsQuery = z.infer<typeof rankingsQuerySchema>;

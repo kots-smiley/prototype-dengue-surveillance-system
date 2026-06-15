@@ -116,7 +116,7 @@ export const exportService = {
   },
 
   async exportReports(query: ExportReportsQuery, user: AuthUser): Promise<ExportFile> {
-    const where: Prisma.RiskReportWhereInput = {};
+    const where: Prisma.RiskReportWhereInput = { status: 'APPROVED' };
     const scoped = scopeBarangay(user, query.barangayId);
     if (scoped) where.barangayId = scoped;
     if (query.category) where.category = query.category;
@@ -135,6 +135,11 @@ export const exportService = {
       return all.filter((f) => r[f] === true).join('; ');
     };
 
+    const reporterLabel = (r: (typeof reports)[number]) =>
+      r.reporter
+        ? `${r.reporter.firstName} ${r.reporter.lastName}`
+        : r.submittedByName?.trim() || 'Resident';
+
     if (isExcel(query.format)) {
       const body = await toXlsx(
         'Risk Reports',
@@ -151,7 +156,7 @@ export const exportService = {
           barangay: r.barangay.name,
           category: r.category,
           factors: activeFactors(r as unknown as Record<string, unknown>),
-          reporter: `${r.reporter.firstName} ${r.reporter.lastName}`,
+          reporter: reporterLabel(r),
           notes: r.notes ?? '',
         }))
       );
@@ -165,7 +170,7 @@ export const exportService = {
         r.barangay.name,
         r.category,
         activeFactors(r as unknown as Record<string, unknown>),
-        `${r.reporter.firstName} ${r.reporter.lastName}`,
+        reporterLabel(r),
         r.notes ?? '',
       ])
     );
@@ -184,7 +189,10 @@ export const exportService = {
 
     const [cases, reports, alerts, barangays] = await Promise.all([
       exportRepository.findCasesInRange(caseWhere),
-      exportRepository.findReportsInRange({ dateReported: { gte: startDate, lte: endDate } }),
+      exportRepository.findReportsInRange({
+        status: 'APPROVED',
+        dateReported: { gte: startDate, lte: endDate },
+      }),
       exportRepository.findAlertsInRange({ triggeredAt: { gte: startDate, lte: endDate } }),
       exportRepository.listBarangays(),
     ]);

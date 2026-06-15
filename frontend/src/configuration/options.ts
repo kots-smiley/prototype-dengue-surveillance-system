@@ -173,6 +173,12 @@ export const ALERT_STATUS_OPTIONS = [
 ] as const;
 
 /** Risk-report factor definitions grouped by transmission category. */
+export const RISK_REPORT_STATUS_OPTIONS = [
+  { value: 'PENDING', label: 'Pending review' },
+  { value: 'APPROVED', label: 'Approved' },
+  { value: 'REJECTED', label: 'Rejected' },
+] as const;
+
 export const RISK_FACTORS_BY_CATEGORY: Record<
   string,
   { key: string; label: string }[]

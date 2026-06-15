@@ -127,7 +127,7 @@ export function AppRoutes() {
         <Route
           path="reports"
           element={
-            <ProtectedRoute roles={['ADMIN', 'BHW']}>
+            <ProtectedRoute roles={['ADMIN', 'HEALTH_OFFICER', 'BHW']}>
               <Reports />
             </ProtectedRoute>
           }

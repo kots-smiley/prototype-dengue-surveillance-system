@@ -8,6 +8,16 @@ export const publicController = {
     sendSuccess(res, { diseases }, 'Diseases retrieved');
   },
 
+  async barangays(_req: Request, res: Response) {
+    const barangays = await publicService.listBarangays();
+    sendSuccess(res, { barangays }, 'Barangays retrieved');
+  },
+
+  async submitReport(req: Request, res: Response) {
+    const report = await publicService.submitReport(req.body);
+    sendSuccess(res, { report }, 'Risk report submitted for review', 201);
+  },
+
   async stats(req: Request, res: Response) {
     const stats = await publicService.getStats(req.query.diseaseId as string | undefined);
     sendSuccess(res, { stats }, 'Public stats retrieved');

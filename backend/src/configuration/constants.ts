@@ -86,6 +86,19 @@ export const FeedbackThreadStatus = {
 export type FeedbackThreadStatus =
   (typeof FeedbackThreadStatus)[keyof typeof FeedbackThreadStatus];
 
+export const RiskReportStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+export type RiskReportStatus = (typeof RiskReportStatus)[keyof typeof RiskReportStatus];
+
+export const RiskReportSource = {
+  STAFF: 'STAFF',
+  RESIDENT: 'RESIDENT',
+} as const;
+export type RiskReportSource = (typeof RiskReportSource)[keyof typeof RiskReportSource];
+
 /** Risk-report factor keys grouped by transmission category. */
 export const RISK_FACTORS_BY_CATEGORY: Record<string, string[]> = {
   VECTOR_BORNE: ['stagnantWater', 'poorWasteDisposal', 'cloggedDrainage', 'housingCongestion'],

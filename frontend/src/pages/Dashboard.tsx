@@ -36,6 +36,7 @@ export default function Dashboard() {
       Promise.all([
         dashboardService.stats({ diseaseId: diseaseId || undefined }),
         dashboardService.trends({ diseaseId: diseaseId || undefined, months: 12 }),
+        dashboardService.weeklyTrends({ diseaseId: diseaseId || undefined, weeks: 12 }),
         dashboardService.diseaseBreakdown(),
         dashboardService.barangayCases({ diseaseId: diseaseId || undefined }),
       ]),
@@ -47,9 +48,10 @@ export default function Dashboard() {
     return <Spinner label="Loading dashboard..." />;
   }
 
-  const [statsRes, trendsRes, breakdownRes, barangayCases] = data;
+  const [statsRes, trendsRes, weeklyRes, breakdownRes, barangayCases] = data;
   const stats = statsRes.data.stats;
   const trends = trendsRes.data.trends;
+  const weeklyTrends = weeklyRes.data.trends;
   const breakdown = breakdownRes.data.breakdown;
   const barangays = [...barangayCases.data].sort((a, b) => b.caseCount - a.caseCount);
   const diseases = diseasesData?.data.diseases ?? [];
@@ -94,7 +96,44 @@ export default function Dashboard() {
         <StatCard label="Tracked Diseases" value={stats.totalDiseases} index={3} />
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Cases This Week"
+          value={stats.currentWeekCases}
+          hint={`${stats.weekCaseIncrease >= 0 ? '+' : ''}${stats.weekCaseIncrease}% vs last week`}
+          tone={stats.weekCaseIncrease > 0 ? 'danger' : 'success'}
+          index={4}
+        />
+        <StatCard
+          label="Risk Reports This Week"
+          value={stats.currentWeekReports}
+          hint={`${stats.weekReportIncrease >= 0 ? '+' : ''}${stats.weekReportIncrease}% vs last week`}
+          index={5}
+        />
+        <StatCard
+          label="Reports This Month"
+          value={stats.totalReports}
+          hint="Approved environmental reports"
+          index={6}
+        />
+        <StatCard label="Barangays" value={stats.totalBarangays} index={7} />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card title="Weekly surveillance activity" subtitle="Cases and approved risk reports by week (last 12 weeks).">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={weeklyTrends} margin={{ top: 10, right: 20, left: 0, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="week" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={70} />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="cases" name="Cases" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="reports" name="Risk reports" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
         <Card title="Monthly case trend" subtitle="12-month historical signal for reporting and surge checks.">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={trends} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -109,7 +148,7 @@ export default function Dashboard() {
 
         <Card title="Cases by disease" subtitle="Breakdown of total case burden by disease.">
           {breakdown.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">No case data yet.</p>
+            <p className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">No case data yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>

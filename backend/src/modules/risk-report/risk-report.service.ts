@@ -4,12 +4,14 @@ import {
   CreateRiskReportInput,
   UpdateRiskReportInput,
   ListRiskReportQuery,
+  ReviewRiskReportInput,
 } from './risk-report.schema';
 import { barangayRepository } from '../barangay/barangay.repository';
 import { earlyWarningService } from '../early-warning/early-warning.service';
 import { AppError } from '../../helper/app-error';
 import { parsePagination, buildPaginationMeta } from '../../helper/pagination';
 import { AuthUser } from '../../types';
+import { RiskReportStatus, RiskReportSource, UserRole } from '../../configuration/constants';
 
 function scheduleEarlyWarning(barangayId: string): void {
   setImmediate(() => {
@@ -17,9 +19,19 @@ function scheduleEarlyWarning(barangayId: string): void {
   });
 }
 
+const REVIEWER_ROLES = [UserRole.ADMIN, UserRole.HEALTH_OFFICER, UserRole.BHW];
+
+function assertCanReview(user: AuthUser): void {
+  if (!REVIEWER_ROLES.includes(user.role as (typeof REVIEWER_ROLES)[number])) {
+    throw new AppError('Access denied', 403);
+  }
+}
+
 export const riskReportService = {
   async list(query: ListRiskReportQuery, user: AuthUser) {
-    const where: Prisma.RiskReportWhereInput = {};
+    const where: Prisma.RiskReportWhereInput = {
+      status: query.status ?? RiskReportStatus.APPROVED,
+    };
 
     if (user.role === 'BHW' && user.barangayId) {
       where.barangayId = user.barangayId;
@@ -63,6 +75,8 @@ export const riskReportService = {
     const { barangayId, photoUrl, ...rest } = input;
     const report = await riskReportRepository.create({
       ...rest,
+      status: RiskReportStatus.APPROVED,
+      source: RiskReportSource.STAFF,
       dateReported: input.dateReported ?? new Date(),
       photoUrl: photoUrl || undefined,
       barangay: { connect: { id: barangayId } },
@@ -95,8 +109,41 @@ export const riskReportService = {
 
     const updated = await riskReportRepository.update(id, data);
 
-    scheduleEarlyWarning(barangayId ?? existing.barangayId);
+    if (existing.status === RiskReportStatus.APPROVED) {
+      scheduleEarlyWarning(barangayId ?? existing.barangayId);
+    }
     return updated;
+  },
+
+  async review(id: string, input: ReviewRiskReportInput, user: AuthUser) {
+    assertCanReview(user);
+
+    const existing = await riskReportRepository.findRawById(id);
+    if (!existing) {
+      throw new AppError('Risk report not found', 404);
+    }
+    if (existing.status !== RiskReportStatus.PENDING) {
+      throw new AppError('Only pending reports can be reviewed', 400);
+    }
+    if (user.role === UserRole.BHW && existing.barangayId !== user.barangayId) {
+      throw new AppError('BHW can only review reports for their assigned barangay', 403);
+    }
+
+    const nextStatus =
+      input.action === 'approve' ? RiskReportStatus.APPROVED : RiskReportStatus.REJECTED;
+
+    const report = await riskReportRepository.update(id, {
+      status: nextStatus,
+      reviewedAt: new Date(),
+      rejectionReason: input.action === 'reject' ? input.rejectionReason ?? undefined : undefined,
+      reviewer: { connect: { id: user.id } },
+    });
+
+    if (nextStatus === RiskReportStatus.APPROVED) {
+      scheduleEarlyWarning(existing.barangayId);
+    }
+
+    return report;
   },
 
   async remove(id: string) {
@@ -105,6 +152,8 @@ export const riskReportService = {
       throw new AppError('Risk report not found', 404);
     }
     await riskReportRepository.delete(id);
-    scheduleEarlyWarning(existing.barangayId);
+    if (existing.status === RiskReportStatus.APPROVED) {
+      scheduleEarlyWarning(existing.barangayId);
+    }
   },
 };

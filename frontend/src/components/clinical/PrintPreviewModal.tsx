@@ -1,5 +1,6 @@
 import { ReactNode, useRef } from 'react';
 import { Button } from '../ui/Button';
+import { PRINT_DOCUMENT_CSS } from './print-styles';
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -18,17 +19,16 @@ export function PrintPreviewModal({ isOpen, title, onClose, children }: PrintPre
     if (!content) return;
     const win = window.open('', '_blank', 'width=800,height=600');
     if (!win) return;
+    const baseHref = `${window.location.origin}/`;
     win.document.write(`
       <!DOCTYPE html>
-      <html><head><title>${title}</title>
-      <style>
-        body { font-family: Georgia, serif; padding: 24px; color: #111; }
-        h1 { font-size: 18px; margin-bottom: 4px; }
-        .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
-        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 13px; }
-        .sig { margin-top: 48px; border-top: 1px solid #999; width: 240px; padding-top: 8px; font-size: 12px; }
-      </style></head><body>${content.innerHTML}</body></html>
+      <html><head>
+        <title>${title}</title>
+        <base href="${baseHref}">
+        <meta charset="utf-8">
+        <meta name="color-scheme" content="light">
+        <style>${PRINT_DOCUMENT_CSS}</style>
+      </head><body>${content.innerHTML}</body></html>
     `);
     win.document.close();
     win.focus();
@@ -47,7 +47,10 @@ export function PrintPreviewModal({ isOpen, title, onClose, children }: PrintPre
             </Button>
           </div>
         </div>
-        <div ref={printRef}>{children}</div>
+        <div ref={printRef} className="rounded-lg border border-slate-200 bg-white p-4 text-slate-900">
+          <style>{PRINT_DOCUMENT_CSS}</style>
+          {children}
+        </div>
       </div>
     </div>
   );

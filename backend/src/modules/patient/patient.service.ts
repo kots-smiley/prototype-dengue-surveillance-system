@@ -4,6 +4,7 @@ import { CreatePatientInput, UpdatePatientInput, ListPatientQuery } from './pati
 import { createSuspectedFromRegistration } from '../case/case-generation.service';
 import { AppError } from '../../helper/app-error';
 import { parsePagination, buildPaginationMeta } from '../../helper/pagination';
+import { buildContainsOr } from '../../helper/text-search';
 import { AuthUser } from '../../types';
 import { logger } from '../../helper/logger';
 
@@ -25,12 +26,10 @@ export const patientService = {
 
     if (query.search) {
       const term = query.search.trim();
-      where.OR = [
-        { firstName: { contains: term, mode: 'insensitive' } },
-        { lastName: { contains: term, mode: 'insensitive' } },
-        { patientCode: { contains: term, mode: 'insensitive' } },
-        { philhealthNo: { contains: term, mode: 'insensitive' } },
-      ];
+      where.OR = buildContainsOr(
+        ['firstName', 'lastName', 'patientCode', 'philhealthNo'],
+        term
+      );
     }
 
     const { page, limit, skip } = parsePagination(query.page, query.limit);
@@ -39,8 +38,8 @@ export const patientService = {
     return { items, pagination: buildPaginationMeta(page, limit, total) };
   },
 
-  async getById(id: string) {
-    const record = await patientRepository.findById(id);
+  async getById(id: string, options?: { includeEncounters?: boolean }) {
+    const record = await patientRepository.findById(id, options);
     if (!record) {
       throw new AppError('Patient not found', 404);
     }

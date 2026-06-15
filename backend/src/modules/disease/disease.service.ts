@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { diseaseRepository } from './disease.repository';
 import { CreateDiseaseInput, UpdateDiseaseInput, ListDiseaseQuery } from './disease.schema';
 import { AppError } from '../../helper/app-error';
+import { buildContainsOr } from '../../helper/text-search';
 
 export const diseaseService = {
   list(query: ListDiseaseQuery) {
@@ -9,10 +10,7 @@ export const diseaseService = {
     if (query.category) where.category = query.category;
     if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
     if (query.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { code: { contains: query.search, mode: 'insensitive' } },
-      ];
+      where.OR = buildContainsOr(['name', 'code'], query.search.trim());
     }
     return diseaseRepository.findMany(where);
   },

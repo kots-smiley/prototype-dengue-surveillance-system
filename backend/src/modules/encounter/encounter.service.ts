@@ -69,23 +69,24 @@ function buildEncounterScalars(input: CreateEncounterInput | UpdateEncounterInpu
 }
 
 async function applyNestedEncounterData(
+  tx: Prisma.TransactionClient,
   encounterId: string,
   input: CreateEncounterInput | UpdateEncounterInput
 ): Promise<void> {
   if (input.vitalSign) {
     const bmi = computeBmi(input.vitalSign.weight, input.vitalSign.height);
-    await prisma.vitalSign.upsert({
+    await tx.vitalSign.upsert({
       where: { encounterId },
       create: { encounterId, ...input.vitalSign, bmi },
       update: { ...input.vitalSign, bmi },
     });
   } else {
-    await prisma.vitalSign.deleteMany({ where: { encounterId } });
+    await tx.vitalSign.deleteMany({ where: { encounterId } });
   }
 
-  await prisma.diagnosis.deleteMany({ where: { encounterId } });
+  await tx.diagnosis.deleteMany({ where: { encounterId } });
   if (input.diagnoses.length > 0) {
-    await prisma.diagnosis.createMany({
+    await tx.diagnosis.createMany({
       data: input.diagnoses.map((d) => ({
         encounterId,
         diseaseId: d.diseaseId,
@@ -98,10 +99,10 @@ async function applyNestedEncounterData(
     });
   }
 
-  await prisma.prescription.deleteMany({ where: { encounterId } });
+  await tx.prescription.deleteMany({ where: { encounterId } });
   if (input.prescriptions.length > 0) {
     for (const p of input.prescriptions) {
-      await prisma.prescription.create({
+      await tx.prescription.create({
         data: { encounterId, items: p.items, notes: p.notes },
       });
     }
@@ -231,14 +232,17 @@ export const encounterService = {
     const facilityId = input.facilityId ?? existing.facilityId ?? user.facilityId ?? null;
     const encounterDate = input.encounterDate ?? existing.encounterDate;
 
-    await prisma.$transaction(async () => {
-      await encounterRepository.update(id, {
-        ...buildEncounterScalars(input),
-        encounterDate,
-        ...(barangayId ? { barangay: { connect: { id: barangayId } } } : {}),
-        ...(facilityId ? { facility: { connect: { id: facilityId } } } : {}),
+    await prisma.$transaction(async (tx) => {
+      await tx.encounter.update({
+        where: { id },
+        data: {
+          ...buildEncounterScalars(input),
+          encounterDate,
+          ...(barangayId ? { barangay: { connect: { id: barangayId } } } : {}),
+          ...(facilityId ? { facility: { connect: { id: facilityId } } } : {}),
+        },
       });
-      await applyNestedEncounterData(id, input);
+      await applyNestedEncounterData(tx, id, input);
     });
 
     const rxItems = flattenPrescriptionItems(input.prescriptions);
@@ -284,6 +288,11 @@ export const encounterService = {
     if (!existing) {
       throw new AppError('Encounter not found', 404);
     }
-    await encounterRepository.delete(id);
+    await prisma.$transaction([
+      prisma.vitalSign.deleteMany({ where: { encounterId: id } }),
+      prisma.diagnosis.deleteMany({ where: { encounterId: id } }),
+      prisma.prescription.deleteMany({ where: { encounterId: id } }),
+      prisma.encounter.delete({ where: { id } }),
+    ]);
   },
 };

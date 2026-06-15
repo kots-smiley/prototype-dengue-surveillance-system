@@ -256,9 +256,9 @@ export default function EncounterForm() {
       />
 
       {(patient.allergies?.length ?? 0) > 0 && (
-        <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3">
-          <p className="text-sm font-semibold text-red-800">Known allergies — review before prescribing</p>
-          <ul className="mt-2 space-y-1 text-sm text-red-700">
+        <div className="alert-danger">
+          <p className="text-sm font-semibold">Known allergies — review before prescribing</p>
+          <ul className="mt-2 space-y-1 text-sm">
             {patient.allergies!.map((a) => (
               <li key={a.id}>
                 {a.substance}
@@ -333,7 +333,7 @@ export default function EncounterForm() {
           ) : (
             <div className="space-y-4">
               {diagnoses.fields.map((field, index) => (
-                <div key={field.id} className="rounded-xl border border-slate-200 p-4">
+                <div key={field.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 dark:bg-slate-900/40">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <TerminologyCombobox
                       label="ICD-10 search"
@@ -375,7 +375,7 @@ export default function EncounterForm() {
                     <Input label="Diagnosis *" {...register(`diagnoses.${index}.description`)} />
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-3">
-                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                       <input type="checkbox" className="h-4 w-4" {...register(`diagnoses.${index}.isPrimary`)} />
                       Primary diagnosis
                     </label>
@@ -422,10 +422,10 @@ export default function EncounterForm() {
                 return (
                   <div
                     key={field.id}
-                    className={`rounded-xl border p-4 ${rowConflicts.length ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}`}
+                    className={`rounded-xl border p-4 ${rowConflicts.length ? 'border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40' : 'border-slate-200 dark:border-slate-700 dark:bg-slate-900/40'}`}
                   >
                     {rowConflicts.length > 0 && (
-                      <p className="mb-2 text-sm font-medium text-amber-800">
+                      <p className="mb-2 text-sm font-medium text-amber-800 dark:text-amber-200">
                         Allergy warning: {rowConflicts.map((c) => c.allergy.substance).join(', ')}
                       </p>
                     )}
@@ -453,7 +453,7 @@ export default function EncounterForm() {
             </div>
           )}
           {allergyConflicts.length > 0 && (
-            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/40">
               <Checkbox
                 label="I acknowledge the allergy warnings and wish to proceed with this prescription"
                 checked={allergyAcknowledged}

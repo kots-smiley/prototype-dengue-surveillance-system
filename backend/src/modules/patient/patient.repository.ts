@@ -8,10 +8,7 @@ const listInclude = {
   _count: { select: { encounters: true } },
 } satisfies Prisma.PatientInclude;
 
-const detailInclude = {
-  barangay: true,
-  homeFacility: true,
-  registeredBy: { select: { id: true, firstName: true, lastName: true, role: true } },
+const clinicalInclude = {
   allergies: { orderBy: { createdAt: 'desc' } },
   problems: { orderBy: { createdAt: 'desc' } },
   medications: { where: { status: 'ACTIVE' }, orderBy: { startDate: 'desc' } },
@@ -29,16 +26,32 @@ const detailInclude = {
     orderBy: { dateReported: 'desc' },
     include: { disease: true, barangay: true },
   },
-  encounters: {
-    orderBy: { encounterDate: 'desc' },
-    include: {
-      facility: true,
-      clinician: { select: { id: true, firstName: true, lastName: true, role: true } },
-      vitalSign: true,
-      diagnoses: { include: { disease: true } },
-      prescriptions: true,
-    },
+} satisfies Prisma.PatientInclude;
+
+const encountersRelation = {
+  orderBy: { encounterDate: 'desc' as const },
+  include: {
+    facility: true,
+    clinician: { select: { id: true, firstName: true, lastName: true, role: true } },
+    vitalSign: true,
+    diagnoses: { include: { disease: true } },
+    prescriptions: true,
   },
+};
+
+const detailInclude = {
+  barangay: true,
+  homeFacility: true,
+  registeredBy: { select: { id: true, firstName: true, lastName: true, role: true } },
+  ...clinicalInclude,
+  encounters: encountersRelation,
+} satisfies Prisma.PatientInclude;
+
+const detailIncludeWithoutEncounters = {
+  barangay: true,
+  homeFacility: true,
+  registeredBy: { select: { id: true, firstName: true, lastName: true, role: true } },
+  ...clinicalInclude,
 } satisfies Prisma.PatientInclude;
 
 const portalInclude = {
@@ -73,8 +86,9 @@ export const patientRepository = {
     ]);
   },
 
-  findById(id: string) {
-    return prisma.patient.findUnique({ where: { id }, include: detailInclude });
+  findById(id: string, options?: { includeEncounters?: boolean }) {
+    const include = options?.includeEncounters ? detailInclude : detailIncludeWithoutEncounters;
+    return prisma.patient.findUnique({ where: { id }, include });
   },
 
   findByIdForPortal(id: string) {

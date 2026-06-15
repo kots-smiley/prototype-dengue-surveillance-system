@@ -61,7 +61,7 @@ function patientResource(p: FhirPatient): Resource {
         given: [p.firstName, ...(p.middleName ? [p.middleName] : [])],
       },
     ],
-    gender: p.sex.toLowerCase(),
+    gender: p.sex === 'FEMALE' ? 'female' : p.sex === 'MALE' ? 'male' : 'unknown',
     birthDate: toDateString(p.birthDate),
     telecom: p.contactNumber ? [{ system: 'phone', value: p.contactNumber }] : [],
     address: p.address ? [{ text: p.address }] : [],

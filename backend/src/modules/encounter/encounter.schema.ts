@@ -3,6 +3,12 @@ import { z } from 'zod';
 const certaintyEnum = z.enum(['SUSPECTED', 'PROBABLE', 'CONFIRMED']);
 const encounterTypeEnum = z.enum(['CONSULT', 'PRENATAL', 'IMMUNIZATION', 'TB', 'NCD', 'FOLLOWUP']);
 
+/** Treat empty strings as undefined for optional query/body fields. */
+const optionalString = z.preprocess(
+  (val) => (val === '' || val === null || val === undefined ? undefined : val),
+  z.string().optional()
+);
+
 const vitalSignSchema = z.object({
   systolic: z.number().int().min(0).max(300).optional(),
   diastolic: z.number().int().min(0).max(200).optional(),
@@ -15,9 +21,9 @@ const vitalSignSchema = z.object({
 });
 
 const diagnosisSchema = z.object({
-  diseaseId: z.string().optional(),
-  icd10Code: z.string().optional(),
-  snomedCode: z.string().optional(),
+  diseaseId: optionalString,
+  icd10Code: optionalString,
+  snomedCode: optionalString,
   description: z.string().min(1),
   certainty: certaintyEnum.optional().default('CONFIRMED'),
   isPrimary: z.boolean().optional().default(false),
@@ -25,40 +31,59 @@ const diagnosisSchema = z.object({
 
 const prescriptionItemSchema = z.object({
   drug: z.string().min(1),
-  dose: z.string().optional(),
-  frequency: z.string().optional(),
-  duration: z.string().optional(),
-  instructions: z.string().optional(),
+  dose: optionalString,
+  frequency: optionalString,
+  duration: optionalString,
+  instructions: optionalString,
 });
 
 const prescriptionSchema = z.object({
   items: z.array(prescriptionItemSchema).min(1),
-  notes: z.string().optional(),
+  notes: optionalString,
 });
 
-export const createEncounterSchema = z.object({
-  patientId: z.string().min(1),
-  barangayId: z.string().optional(),
-  facilityId: z.string().optional(),
+const encounterBodySchema = z.object({
+  barangayId: optionalString,
+  facilityId: optionalString,
   type: encounterTypeEnum.optional().default('CONSULT'),
   encounterDate: z.coerce.date().optional(),
-  chiefComplaint: z.string().optional(),
-  subjective: z.string().optional(),
-  objective: z.string().optional(),
-  assessment: z.string().optional(),
-  plan: z.string().optional(),
+  chiefComplaint: optionalString,
+  subjective: optionalString,
+  objective: optionalString,
+  assessment: optionalString,
+  plan: optionalString,
   vitalSign: vitalSignSchema.optional(),
   diagnoses: z.array(diagnosisSchema).optional().default([]),
-  prescriptions: z.array(prescriptionSchema).optional().default([]),
+  prescriptions: z
+    .preprocess(
+      (val) =>
+        Array.isArray(val)
+          ? val.filter(
+              (entry) =>
+                entry &&
+                typeof entry === 'object' &&
+                Array.isArray((entry as { items?: unknown[] }).items) &&
+                (entry as { items: unknown[] }).items.length > 0
+            )
+          : val,
+      z.array(prescriptionSchema).optional().default([])
+    ),
 });
 
-export const updateEncounterSchema = createEncounterSchema.omit({ patientId: true });
+export const createEncounterSchema = encounterBodySchema.extend({
+  patientId: z.string().min(1),
+});
+
+export const updateEncounterSchema = encounterBodySchema;
 
 export const listEncounterQuerySchema = z.object({
-  patientId: z.string().optional(),
-  type: encounterTypeEnum.optional(),
-  page: z.string().optional(),
-  limit: z.string().optional(),
+  patientId: optionalString,
+  type: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : val),
+    encounterTypeEnum.optional()
+  ),
+  page: optionalString,
+  limit: optionalString,
 });
 
 export type CreateEncounterInput = z.infer<typeof createEncounterSchema>;

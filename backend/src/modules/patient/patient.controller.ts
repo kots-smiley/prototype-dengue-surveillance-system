@@ -10,7 +10,8 @@ export const patientController = {
   },
 
   async getById(req: AuthRequest, res: Response) {
-    const record = await patientService.getById(req.params.id);
+    const includeEncounters = req.query.includeEncounters === 'true';
+    const record = await patientService.getById(req.params.id, { includeEncounters });
     sendSuccess(res, { patient: record }, 'Patient retrieved');
   },
 

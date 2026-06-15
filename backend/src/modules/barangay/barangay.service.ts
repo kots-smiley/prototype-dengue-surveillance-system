@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { barangayRepository } from './barangay.repository';
 import { CreateBarangayInput, UpdateBarangayInput, ListBarangayQuery } from './barangay.schema';
 import { AppError } from '../../helper/app-error';
+import { buildContainsOr } from '../../helper/text-search';
 
 export const barangayService = {
   list(query: ListBarangayQuery) {
@@ -9,10 +10,7 @@ export const barangayService = {
     if (query.municipality) where.municipality = query.municipality;
     if (query.province) where.province = query.province;
     if (query.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { code: { contains: query.search, mode: 'insensitive' } },
-      ];
+      where.OR = buildContainsOr(['name', 'code'], query.search.trim());
     }
     return barangayRepository.findMany(where);
   },

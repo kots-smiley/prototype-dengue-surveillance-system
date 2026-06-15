@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { facilityRepository } from './facility.repository';
 import { CreateFacilityInput, UpdateFacilityInput, ListFacilityQuery } from './facility.schema';
 import { AppError } from '../../helper/app-error';
+import { buildContainsOr } from '../../helper/text-search';
 
 export const facilityService = {
   async list(query: ListFacilityQuery) {
@@ -10,11 +11,7 @@ export const facilityService = {
     if (query.barangayId) where.barangayId = query.barangayId;
     if (query.isActive !== undefined) where.isActive = query.isActive === 'true';
     if (query.search) {
-      const term = query.search.trim();
-      where.OR = [
-        { name: { contains: term, mode: 'insensitive' } },
-        { code: { contains: term, mode: 'insensitive' } },
-      ];
+      where.OR = buildContainsOr(['name', 'code'], query.search.trim());
     }
     const facilities = await facilityRepository.findMany(where);
     return { facilities };

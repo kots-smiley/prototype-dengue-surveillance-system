@@ -99,7 +99,16 @@ async function fetchFhir(path: string): Promise<unknown> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) throw new Error(`FHIR request failed (${res.status})`);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = (await res.json()) as { message?: string };
+      detail = body.message ? `: ${body.message}` : '';
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(`FHIR request failed (${res.status})${detail}`);
+  }
   return res.json();
 }
 
@@ -108,9 +117,9 @@ export const fhirService = {
     return fetchFhir(`/fhir/Patient/${id}`);
   },
   everything(id: string) {
-    return fetchFhir(`/fhir/Patient/${id}/$everything`);
+    return fetchFhir(`/fhir/Patient/${id}/everything`);
   },
   summary(id: string) {
-    return fetchFhir(`/fhir/Patient/${id}/$summary`);
+    return fetchFhir(`/fhir/Patient/${id}/summary`);
   },
 };

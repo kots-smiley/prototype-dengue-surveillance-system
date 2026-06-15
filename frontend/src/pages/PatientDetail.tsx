@@ -30,6 +30,7 @@ import {
 import { Encounter, Patient, Facility, Referral, Case } from '../types';
 import { facilityService } from '../services/facility-service';
 import { referralService, consentService, documentService, fhirService } from '../services/ehr-service';
+import { encounterService } from '../services/encounter-service';
 import { downloadJson } from '../utils/download-json';
 import { VitalTrendsChart } from '../components/clinical/VitalTrendsChart';
 import { PrintPreviewModal } from '../components/clinical/PrintPreviewModal';
@@ -76,7 +77,23 @@ export default function PatientDetail() {
     { errorMessage: 'Failed to load patient' }
   );
 
+  const {
+    data: encountersData,
+    loading: encountersLoading,
+    refetch: refetchEncounters,
+  } = useApiResource(
+    () => encounterService.list({ patientId: id, limit: 100 }),
+    [id],
+    { errorMessage: 'Failed to load encounters' }
+  );
+
   const patient = data?.data.patient;
+  const encounters = encountersData?.data.items ?? [];
+
+  const refetchAll = () => {
+    refetch();
+    refetchEncounters();
+  };
 
   const handleArchive = async () => {
     try {
@@ -160,14 +177,14 @@ export default function PatientDetail() {
       </div>
 
       {(patient.allergies?.length ?? 0) > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="alert-danger">
           <span className="font-semibold">Allergies:</span>{' '}
           {patient.allergies!.map((a) => a.substance).join(', ')}
         </div>
       )}
 
       {!patient.consentGiven && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+        <div className="alert-warning">
           Data privacy consent is not yet on file. Encounters cannot be recorded until consent is
           granted. Edit the patient to record consent.
         </div>
@@ -190,18 +207,23 @@ export default function PatientDetail() {
       </div>
 
       {tab === 'encounters' && (
-        <EncountersTab encounters={patient.encounters ?? []} patientId={id} patient={patient} />
+        <EncountersTab
+          encounters={encounters}
+          loading={encountersLoading}
+          patientId={id}
+          patient={patient}
+        />
       )}
-      {tab === 'conditions' && <ConditionsTab patient={patient} onChange={refetch} />}
-      {tab === 'medications' && <MedicationsTab patient={patient} onChange={refetch} />}
-      {tab === 'history' && <HistoryTab patient={patient} onChange={refetch} />}
-      {tab === 'immunizations' && <ImmunizationsTab patient={patient} onChange={refetch} />}
-      {tab === 'maternal' && <MaternalTab patient={patient} onChange={refetch} />}
-      {tab === 'labs' && <LabsTab patient={patient} onChange={refetch} />}
-      {tab === 'referrals' && <ReferralsTab patient={patient} onChange={refetch} />}
+      {tab === 'conditions' && <ConditionsTab patient={patient} onChange={refetchAll} />}
+      {tab === 'medications' && <MedicationsTab patient={patient} onChange={refetchAll} />}
+      {tab === 'history' && <HistoryTab patient={patient} onChange={refetchAll} />}
+      {tab === 'immunizations' && <ImmunizationsTab patient={patient} onChange={refetchAll} />}
+      {tab === 'maternal' && <MaternalTab patient={patient} onChange={refetchAll} />}
+      {tab === 'labs' && <LabsTab patient={patient} onChange={refetchAll} />}
+      {tab === 'referrals' && <ReferralsTab patient={patient} onChange={refetchAll} />}
       {tab === 'cases' && <CasesTab patient={patient} />}
-      {tab === 'consent' && <ConsentTab patient={patient} onChange={refetch} />}
-      {tab === 'documents' && <DocumentsTab patient={patient} onChange={refetch} />}
+      {tab === 'consent' && <ConsentTab patient={patient} onChange={refetchAll} />}
+      {tab === 'documents' && <DocumentsTab patient={patient} onChange={refetchAll} />}
 
       <div className="flex justify-end">
         <Button variant="danger" onClick={() => setArchiveOpen(true)}>
@@ -247,7 +269,7 @@ function CasesTab({ patient }: { patient: Patient }) {
               <th className="table-head-cell">Outcome</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
+          <tbody className="table-body">
             {cases.map((c) => (
               <tr key={c.id}>
                 <td className="table-cell whitespace-nowrap">{formatDate(c.dateReported)}</td>
@@ -276,25 +298,33 @@ function SummaryItem({
   tone?: 'default' | 'success' | 'warning';
 }) {
   const toneClass =
-    tone === 'success' ? 'text-green-700' : tone === 'warning' ? 'text-amber-700' : 'text-slate-900';
+    tone === 'success'
+      ? 'summary-value-success'
+      : tone === 'warning'
+        ? 'summary-value-warning'
+        : 'summary-value';
   return (
     <div className="surface p-3">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className={`mt-1 truncate text-sm font-semibold ${toneClass}`}>{value}</p>
+      <p className="text-xs font-medium muted">{label}</p>
+      <p className={toneClass}>{value}</p>
     </div>
   );
 }
 
 function EncountersTab({
   encounters,
+  loading,
   patientId,
   patient,
 }: {
   encounters: Encounter[];
+  loading: boolean;
   patientId: string;
   patient: Patient;
 }) {
   const [printEncounter, setPrintEncounter] = useState<Encounter | null>(null);
+
+  if (loading) return <Spinner label="Loading encounters..." />;
 
   if (encounters.length === 0) {
     return (
@@ -335,7 +365,7 @@ function EncountersTab({
         >
           <div className="space-y-3 text-sm">
             {(e.facility || e.clinician) && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs muted">
                 {e.facility ? `${e.facility.name}` : ''}
                 {e.facility && e.clinician ? ' · ' : ''}
                 {e.clinician ? `${e.clinician.firstName} ${e.clinician.lastName} (${humanize(e.clinician.role)})` : ''}
@@ -343,7 +373,7 @@ function EncountersTab({
             )}
             {e.chiefComplaint && (
               <p>
-                <span className="font-semibold text-slate-700">Chief complaint:</span> {e.chiefComplaint}
+                <span className="field-label">Chief complaint:</span> {e.chiefComplaint}
               </p>
             )}
             {e.vitalSign && (
@@ -360,7 +390,7 @@ function EncountersTab({
             )}
             {(e.diagnoses?.length ?? 0) > 0 && (
               <div>
-                <span className="font-semibold text-slate-700">Diagnoses:</span>
+                <span className="field-label">Diagnoses:</span>
                 <ul className="mt-1 space-y-1">
                   {e.diagnoses!.map((d) => (
                     <li key={d.id} className="flex items-center gap-2">
@@ -379,17 +409,17 @@ function EncountersTab({
             )}
             {e.assessment && (
               <p>
-                <span className="font-semibold text-slate-700">Assessment:</span> {e.assessment}
+                <span className="field-label">Assessment:</span> {e.assessment}
               </p>
             )}
             {e.plan && (
               <p>
-                <span className="font-semibold text-slate-700">Plan:</span> {e.plan}
+                <span className="field-label">Plan:</span> {e.plan}
               </p>
             )}
             {(e.prescriptions?.length ?? 0) > 0 && (
               <div>
-                <span className="font-semibold text-slate-700">Prescriptions:</span>
+                <span className="field-label">Prescriptions:</span>
                 <ul className="mt-1 list-inside list-disc">
                   {e.prescriptions!.flatMap((p) =>
                     p.items.map((it, idx) => (
@@ -418,8 +448,8 @@ function EncountersTab({
 
 function Vital({ label, value }: { label: string; value: string }) {
   return (
-    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-      {label}: <span className="font-semibold text-slate-900">{value}</span>
+    <span className="vital-chip">
+      {label}: <span className="vital-chip-value">{value}</span>
     </span>
   );
 }
@@ -488,15 +518,15 @@ function ConditionsTab({ patient, onChange }: { patient: Patient; onChange: () =
           <Button onClick={addAllergy}>Add</Button>
         </div>
         {(patient.allergies?.length ?? 0) === 0 ? (
-          <p className="text-sm text-slate-500">No known allergies recorded.</p>
+          <p className="text-sm muted">No known allergies recorded.</p>
         ) : (
           <ul className="space-y-2">
             {patient.allergies!.map((a) => (
-              <li key={a.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <li key={a.id} className="list-row flex items-center justify-between">
                 <span>
                   {a.substance} {a.severity ? <span className="badge badge-warning ml-2">{humanize(a.severity)}</span> : null}
                 </span>
-                <button onClick={() => removeAllergy(a.id)} className="text-red-600 hover:text-red-800">
+                <button onClick={() => removeAllergy(a.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
                   Remove
                 </button>
               </li>
@@ -515,7 +545,7 @@ function ConditionsTab({ patient, onChange }: { patient: Patient; onChange: () =
         ) : (
           <ul className="space-y-2">
             {patient.problems!.map((p) => (
-              <li key={p.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <li key={p.id} className="list-row flex items-center justify-between">
                 <span>
                   {p.name} <span className="badge badge-info ml-2">{humanize(p.status)}</span>
                 </span>

@@ -29,9 +29,8 @@ import {
 } from '../configuration/options';
 import { Encounter, Patient, Facility, Referral, Case } from '../types';
 import { facilityService } from '../services/facility-service';
-import { referralService, consentService, documentService, fhirService } from '../services/ehr-service';
+import { referralService, consentService, documentService } from '../services/ehr-service';
 import { encounterService } from '../services/encounter-service';
-import { downloadJson } from '../utils/download-json';
 import { VitalTrendsChart } from '../components/clinical/VitalTrendsChart';
 import { PrintPreviewModal } from '../components/clinical/PrintPreviewModal';
 import { PrescriptionPrint } from '../components/clinical/PrescriptionPrint';
@@ -118,34 +117,6 @@ export default function PatientDetail() {
             <Link to={`/patients/${id}/encounters/new`}>
               <Button>New Encounter</Button>
             </Link>
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const ips = await fhirService.summary(id);
-                  downloadJson(ips, `IPS-${patient.patientCode}.json`);
-                  toast.success('International Patient Summary exported');
-                } catch {
-                  toast.error('Failed to export IPS');
-                }
-              }}
-            >
-              Export IPS
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const bundle = await fhirService.everything(id);
-                  downloadJson(bundle, `FHIR-${patient.patientCode}.json`);
-                  toast.success('FHIR bundle exported');
-                } catch {
-                  toast.error('Failed to export FHIR');
-                }
-              }}
-            >
-              Export FHIR
-            </Button>
             <Link to={`/patients/${id}/edit`}>
               <Button variant="secondary">Edit</Button>
             </Link>

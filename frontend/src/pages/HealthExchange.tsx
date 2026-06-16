@@ -13,7 +13,6 @@ import { ApiError } from '../utils/api-client';
 import { ageFromBirthDate, formatDate, fullName, humanize } from '../utils/formatters';
 import { CONSENT_PURPOSE_OPTIONS } from '../configuration/options';
 import { Patient } from '../types';
-import { downloadJson } from '../utils/download-json';
 
 export default function HealthExchange() {
   const [search, setSearch] = useState('');
@@ -134,11 +133,6 @@ export default function HealthExchange() {
         <Card
           title="3) Shared record"
           subtitle={`Purpose: ${humanize(record.purpose)}${record.breakGlass ? ' · BREAK-GLASS' : ''}`}
-          actions={
-            <Button variant="secondary" onClick={() => downloadJson(record.summary, `IPS-${selected.patientCode}.json`)}>
-              Download IPS (FHIR)
-            </Button>
-          }
         >
           {record.timeline.length === 0 ? (
             <EmptyState icon="🗂️" title="No cross-facility encounters" />

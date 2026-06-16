@@ -1,5 +1,4 @@
-import { apiClient, buildQuery, getToken } from '../utils/api-client';
-import { API_BASE_URL } from '../configuration/constants';
+import { apiClient, buildQuery } from '../utils/api-client';
 import { Referral, Consent, ClinicalDocument, TerminologyConcept, Encounter } from '../types';
 
 // --- Referrals (ISO 13940 continuity of care) ---
@@ -90,36 +89,5 @@ export interface SharedRecord {
 export const hieService = {
   getRecord(patientId: string, params: { purpose?: string; breakGlass?: string } = {}) {
     return apiClient<SharedRecord>(`/hie/patients/${patientId}/record${buildQuery(params)}`);
-  },
-};
-
-// --- FHIR export (returns raw FHIR JSON, not the API envelope) ---
-async function fetchFhir(path: string): Promise<unknown> {
-  const token = getToken();
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) {
-    let detail = '';
-    try {
-      const body = (await res.json()) as { message?: string };
-      detail = body.message ? `: ${body.message}` : '';
-    } catch {
-      // ignore parse errors
-    }
-    throw new Error(`FHIR request failed (${res.status})${detail}`);
-  }
-  return res.json();
-}
-
-export const fhirService = {
-  patient(id: string) {
-    return fetchFhir(`/fhir/Patient/${id}`);
-  },
-  everything(id: string) {
-    return fetchFhir(`/fhir/Patient/${id}/everything`);
-  },
-  summary(id: string) {
-    return fetchFhir(`/fhir/Patient/${id}/summary`);
   },
 };

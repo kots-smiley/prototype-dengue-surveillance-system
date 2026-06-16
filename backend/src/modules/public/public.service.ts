@@ -7,8 +7,7 @@ import { barangayRepository } from '../barangay/barangay.repository';
 import { AppError } from '../../helper/app-error';
 import { RiskReportStatus, RiskReportSource } from '../../configuration/constants';
 import { addDays, buildWeeklyBuckets, formatShortDate, startOfWeekMonday } from '../../helper/week';
-
-const approvedReportsOnly = { status: RiskReportStatus.APPROVED };
+import { withApprovedRiskReports } from '../../helper/risk-report-filter';
 
 // --- simple statistics (rule-based, NOT ML) -------------------------------
 function linearRegressionPredict(values: number[], horizon: number): number[] {
@@ -104,17 +103,22 @@ export const publicService = {
       }),
       publicRepository.countBarangays(),
       publicRepository.countActiveAlerts(),
-      publicRepository.countReports({ ...approvedReportsOnly, dateReported: { gte: currentMonthStart } }),
+      publicRepository.countReports(
+        withApprovedRiskReports({ dateReported: { gte: currentMonthStart } })
+      ),
       publicRepository.countCases({ ...base, dateReported: { gte: thisWeekStart } }),
       publicRepository.countCases({
         ...base,
         dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
       }),
-      publicRepository.countReports({ ...approvedReportsOnly, dateReported: { gte: thisWeekStart } }),
-      publicRepository.countReports({
-        ...approvedReportsOnly,
-        dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
-      }),
+      publicRepository.countReports(
+        withApprovedRiskReports({ dateReported: { gte: thisWeekStart } })
+      ),
+      publicRepository.countReports(
+        withApprovedRiskReports({
+          dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
+        })
+      ),
     ]);
 
     const caseIncrease =
@@ -202,10 +206,11 @@ export const publicService = {
           ...diseaseFilter,
           dateReported: { gte: b.start, lt: b.end },
         }),
-        publicRepository.countReports({
-          ...approvedReportsOnly,
-          dateReported: { gte: b.start, lt: b.end },
-        }),
+        publicRepository.countReports(
+          withApprovedRiskReports({
+            dateReported: { gte: b.start, lt: b.end },
+          })
+        ),
       ]);
       weeklyCases.push(cases);
       weeklyReports.push(reports);
@@ -233,7 +238,9 @@ export const publicService = {
       publicRepository.countCases({ ...diseaseFilter, dateReported: { gte: sevenDaysAgo } }),
       publicRepository.countCases({ ...diseaseFilter, dateReported: { gte: monthStart } }),
       publicRepository.countCases({ ...diseaseFilter, dateReported: { gte: thisWeekStart } }),
-      publicRepository.countReports({ ...approvedReportsOnly, dateReported: { gte: thisWeekStart } }),
+      publicRepository.countReports(
+        withApprovedRiskReports({ dateReported: { gte: thisWeekStart } })
+      ),
     ]);
 
     // Regional risk assessment (last 30 days)
@@ -251,11 +258,12 @@ export const publicService = {
       };
       const [cases30, reports30, activeAlertCount, thisWeekCases, prevWeekCases] = await Promise.all([
         publicRepository.countCases(caseWhere),
-        publicRepository.countReports({
-          ...approvedReportsOnly,
-          barangayId: b.id,
-          dateReported: { gte: riskWindowStart },
-        }),
+        publicRepository.countReports(
+          withApprovedRiskReports({
+            barangayId: b.id,
+            dateReported: { gte: riskWindowStart },
+          })
+        ),
         publicRepository.countActiveAlertsForBarangay(b.id, query.diseaseId),
         publicRepository.countCases({
           ...diseaseFilter,

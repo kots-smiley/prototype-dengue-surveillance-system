@@ -1,5 +1,6 @@
 import { prisma } from '../../configuration/prisma';
 import { RISK_FACTORS_BY_CATEGORY } from '../../configuration/constants';
+import { withApprovedRiskReports } from '../../helper/risk-report-filter';
 
 function monthRange(year: number, month: number) {
   return {
@@ -32,12 +33,11 @@ export const earlyWarningRepository = {
         : [{ stagnantWater: true }];
 
     return prisma.riskReport.count({
-      where: {
+      where: withApprovedRiskReports({
         barangayId,
-        status: 'APPROVED',
         dateReported: monthRange(year, month),
         OR: orConditions,
-      },
+      }),
     });
   },
 

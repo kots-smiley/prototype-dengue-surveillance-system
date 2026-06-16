@@ -345,6 +345,8 @@ async function seedYearlyHistory() {
         data: {
           barangayId: barangay.id,
           reportedBy: bhw?.id ?? reporterId,
+          status: 'APPROVED',
+          source: 'STAFF',
           category,
           dateReported: randomDateInMonth(y, m, maxDay),
           notes: `${YEARLY_SEED_MARKER} environmental risk report`,
@@ -721,8 +723,20 @@ async function seedEhrLinks() {
   console.log('Linked EHR facilities, consent, and referral.');
 }
 
+/** Backfill approval fields on risk reports created before the resident-submission feature. */
+async function backfillRiskReportStatus() {
+  const updated = await prisma.riskReport.updateMany({
+    where: { status: { isSet: false } },
+    data: { status: 'APPROVED', source: 'STAFF' },
+  });
+  if (updated.count > 0) {
+    console.log(`Backfilled status on ${updated.count} legacy risk report(s).`);
+  }
+}
+
 async function main() {
   console.log('Seeding HealthWatch database...');
+  await backfillRiskReportStatus();
   await seedBarangays();
   await seedDiseases();
   await seedFacilities();

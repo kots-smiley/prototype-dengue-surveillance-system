@@ -60,12 +60,15 @@ export default function PatientForm() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
     reset,
   } = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
     defaultValues: { sex: 'MALE', consentGiven: false },
   });
+
+  const consentGiven = watch('consentGiven');
 
   useEffect(() => {
     const load = async () => {
@@ -250,7 +253,7 @@ export default function PatientForm() {
           </Card>
 
           <div className="flex gap-3">
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || (!id && !consentGiven)}>
               {submitting ? 'Saving...' : id ? 'Update' : 'Register'}
             </Button>
             <Button type="button" variant="secondary" onClick={() => navigate('/patients')}>

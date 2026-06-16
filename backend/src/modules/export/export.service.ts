@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { exportRepository } from './export.repository';
 import { ExportCasesQuery, ExportReportsQuery, ExportSummaryQuery } from './export.schema';
 import { AuthUser } from '../../types';
+import { withApprovedRiskReports } from '../../helper/risk-report-filter';
 import { RISK_FACTORS_BY_CATEGORY } from '../../configuration/constants';
 
 export interface ExportFile {
@@ -48,6 +49,25 @@ function scopeBarangay(user: AuthUser, barangayId?: string): string | undefined 
   return barangayId;
 }
 
+function exportTimestamp(date = new Date()): string {
+  const month = date.toLocaleString('en-US', { month: 'long' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  const time = date
+    .toLocaleString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    })
+    .replace(/:/g, '-');
+  return `${month} ${day} ${year} ${time}`;
+}
+
+function buildExportFilename(base: string, ext: string, date = new Date()): string {
+  return `${base} - ${exportTimestamp(date)}.${ext}`;
+}
+
 export const exportService = {
   async exportCases(query: ExportCasesQuery, user: AuthUser): Promise<ExportFile> {
     const where: Prisma.CaseWhereInput = {};
@@ -61,7 +81,8 @@ export const exportService = {
     }
 
     const cases = await exportRepository.findCases(where);
-    const stamp = Date.now();
+    const exportedAt = new Date();
+    const ext = isExcel(query.format) ? 'xlsx' : 'csv';
 
     if (isExcel(query.format)) {
       const body = await toXlsx(
@@ -77,7 +98,6 @@ export const exportService = {
           { header: 'Outcome', key: 'outcome', width: 12 },
           { header: 'Source', key: 'source', width: 18 },
           { header: 'Reporter', key: 'reporter', width: 22 },
-          { header: 'Notes', key: 'notes', width: 40 },
         ],
         cases.map((c) => ({
           dateReported: new Date(c.dateReported).toISOString().slice(0, 10),
@@ -90,14 +110,13 @@ export const exportService = {
           outcome: c.outcome,
           source: c.source,
           reporter: `${c.reporter.firstName} ${c.reporter.lastName}`,
-          notes: c.notes ?? '',
         }))
       );
-      return { filename: `cases-${stamp}.xlsx`, contentType: XLSX, body };
+      return { filename: buildExportFilename('cases', ext, exportedAt), contentType: XLSX, body };
     }
 
     const body = toCsv(
-      ['Date Reported', 'Disease', 'Barangay', 'Age', 'Age Group', 'Sex', 'Status', 'Outcome', 'Source', 'Reporter', 'Notes'],
+      ['Date Reported', 'Disease', 'Barangay', 'Age', 'Age Group', 'Sex', 'Status', 'Outcome', 'Source', 'Reporter'],
       cases.map((c) => [
         new Date(c.dateReported).toLocaleDateString(),
         c.disease.name,
@@ -109,14 +128,13 @@ export const exportService = {
         c.outcome,
         c.source,
         `${c.reporter.firstName} ${c.reporter.lastName}`,
-        c.notes ?? '',
       ])
     );
-    return { filename: `cases-${stamp}.csv`, contentType: CSV, body };
+    return { filename: buildExportFilename('cases', ext, exportedAt), contentType: CSV, body };
   },
 
   async exportReports(query: ExportReportsQuery, user: AuthUser): Promise<ExportFile> {
-    const where: Prisma.RiskReportWhereInput = { status: 'APPROVED' };
+    const where: Prisma.RiskReportWhereInput = withApprovedRiskReports();
     const scoped = scopeBarangay(user, query.barangayId);
     if (scoped) where.barangayId = scoped;
     if (query.category) where.category = query.category;
@@ -127,7 +145,8 @@ export const exportService = {
     }
 
     const reports = await exportRepository.findReports(where);
-    const stamp = Date.now();
+    const exportedAt = new Date();
+    const ext = isExcel(query.format) ? 'xlsx' : 'csv';
 
     // Flatten all factor flags into a readable list of active factors.
     const activeFactors = (r: Record<string, unknown>): string => {
@@ -149,7 +168,6 @@ export const exportService = {
           { header: 'Category', key: 'category', width: 16 },
           { header: 'Active Risk Factors', key: 'factors', width: 50 },
           { header: 'Reporter', key: 'reporter', width: 22 },
-          { header: 'Notes', key: 'notes', width: 40 },
         ],
         reports.map((r) => ({
           dateReported: new Date(r.dateReported).toISOString().slice(0, 10),
@@ -157,24 +175,22 @@ export const exportService = {
           category: r.category,
           factors: activeFactors(r as unknown as Record<string, unknown>),
           reporter: reporterLabel(r),
-          notes: r.notes ?? '',
         }))
       );
-      return { filename: `risk-reports-${stamp}.xlsx`, contentType: XLSX, body };
+      return { filename: buildExportFilename('risk-reports', ext, exportedAt), contentType: XLSX, body };
     }
 
     const body = toCsv(
-      ['Date Reported', 'Barangay', 'Category', 'Active Risk Factors', 'Reporter', 'Notes'],
+      ['Date Reported', 'Barangay', 'Category', 'Active Risk Factors', 'Reporter'],
       reports.map((r) => [
         new Date(r.dateReported).toLocaleDateString(),
         r.barangay.name,
         r.category,
         activeFactors(r as unknown as Record<string, unknown>),
         reporterLabel(r),
-        r.notes ?? '',
       ])
     );
-    return { filename: `risk-reports-${stamp}.csv`, contentType: CSV, body };
+    return { filename: buildExportFilename('risk-reports', ext, exportedAt), contentType: CSV, body };
   },
 
   async exportSummary(query: ExportSummaryQuery): Promise<ExportFile> {
@@ -189,10 +205,11 @@ export const exportService = {
 
     const [cases, reports, alerts, barangays] = await Promise.all([
       exportRepository.findCasesInRange(caseWhere),
-      exportRepository.findReportsInRange({
-        status: 'APPROVED',
-        dateReported: { gte: startDate, lte: endDate },
-      }),
+      exportRepository.findReportsInRange(
+        withApprovedRiskReports({
+          dateReported: { gte: startDate, lte: endDate },
+        })
+      ),
       exportRepository.findAlertsInRange({ triggeredAt: { gte: startDate, lte: endDate } }),
       exportRepository.listBarangays(),
     ]);
@@ -200,7 +217,8 @@ export const exportService = {
     const monthName = new Date(targetYear, targetMonth - 1, 1).toLocaleString('default', {
       month: 'long',
     });
-    const stamp = Date.now();
+    const exportedAt = new Date();
+    const ext = isExcel(query.format) ? 'xlsx' : 'csv';
 
     const byBarangay = barangays.map((b) => {
       const bCases = cases.filter((c) => c.barangayId === b.id);
@@ -257,7 +275,7 @@ export const exportService = {
 
       const arrayBuffer = await workbook.xlsx.writeBuffer();
       return {
-        filename: `summary-${targetYear}-${targetMonth}-${stamp}.xlsx`,
+        filename: buildExportFilename('summary', ext, exportedAt),
         contentType: XLSX,
         body: Buffer.from(arrayBuffer),
       };
@@ -292,7 +310,7 @@ export const exportService = {
       ])
     );
     return {
-      filename: `summary-${targetYear}-${targetMonth}-${stamp}.csv`,
+      filename: buildExportFilename('summary', ext, exportedAt),
       contentType: CSV,
       body: `${totalsCsv}\n\n${byBarangayCsv}`,
     };

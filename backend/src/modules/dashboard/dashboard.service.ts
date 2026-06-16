@@ -3,7 +3,7 @@ import { dashboardRepository } from './dashboard.repository';
 import { StatsQuery, TrendsQuery, WeeklyTrendsQuery, RankingsQuery } from './dashboard.schema';
 import { AuthUser } from '../../types';
 import { addDays, buildWeeklyBuckets, startOfWeekMonday } from '../../helper/week';
-import { RiskReportStatus } from '../../configuration/constants';
+import { withApprovedRiskReports } from '../../helper/risk-report-filter';
 
 function scopeByRole(user: AuthUser, barangayId?: string): string | undefined {
   if (user.role === 'BHW' && user.barangayId) return user.barangayId;
@@ -16,10 +16,10 @@ function buildScopedFilters(query: StatsQuery | WeeklyTrendsQuery, user: AuthUse
   if (scopedBarangay) caseWhere.barangayId = scopedBarangay;
   if (query.diseaseId) caseWhere.diseaseId = query.diseaseId;
 
-  const reportWhere: Prisma.RiskReportWhereInput = { status: RiskReportStatus.APPROVED };
-  if (scopedBarangay) reportWhere.barangayId = scopedBarangay;
+  const reportExtra: Prisma.RiskReportWhereInput = {};
+  if (scopedBarangay) reportExtra.barangayId = scopedBarangay;
 
-  return { caseWhere, reportWhere };
+  return { caseWhere, reportWhere: withApprovedRiskReports(reportExtra) };
 }
 
 export const dashboardService = {
@@ -32,17 +32,16 @@ export const dashboardService = {
     const previousWeekStart = addDays(thisWeekStart, -7);
     const previousWeekEnd = addDays(thisWeekStart, -1);
 
-    const { caseWhere: baseCaseWhere, reportWhere: baseReportWhere } = buildScopedFilters(query, user);
+    const { caseWhere: baseCaseWhere } = buildScopedFilters(query, user);
 
     const alertWhere: Prisma.AlertWhereInput = { status: 'ACTIVE' };
     const scopedBarangay = scopeByRole(user, query.barangayId);
     if (scopedBarangay) alertWhere.barangayId = scopedBarangay;
     if (query.diseaseId) alertWhere.diseaseId = query.diseaseId;
 
-    const reportWhere: Prisma.RiskReportWhereInput = {
-      ...baseReportWhere,
-      dateReported: { gte: currentMonthStart },
-    };
+    const reportScope: Prisma.RiskReportWhereInput = scopedBarangay
+      ? { barangayId: scopedBarangay }
+      : {};
 
     const [
       totalCases,
@@ -69,7 +68,12 @@ export const dashboardService = {
       dashboardRepository.countBarangays(),
       dashboardRepository.countDiseases({ isActive: true }),
       dashboardRepository.countAlerts(alertWhere),
-      dashboardRepository.countReports(reportWhere),
+      dashboardRepository.countReports(
+        withApprovedRiskReports({
+          ...reportScope,
+          dateReported: { gte: currentMonthStart },
+        })
+      ),
       dashboardRepository.countCases({
         ...baseCaseWhere,
         dateReported: { gte: thisWeekStart },
@@ -78,14 +82,18 @@ export const dashboardService = {
         ...baseCaseWhere,
         dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
       }),
-      dashboardRepository.countReports({
-        ...baseReportWhere,
-        dateReported: { gte: thisWeekStart },
-      }),
-      dashboardRepository.countReports({
-        ...baseReportWhere,
-        dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
-      }),
+      dashboardRepository.countReports(
+        withApprovedRiskReports({
+          ...reportScope,
+          dateReported: { gte: thisWeekStart },
+        })
+      ),
+      dashboardRepository.countReports(
+        withApprovedRiskReports({
+          ...reportScope,
+          dateReported: { gte: previousWeekStart, lte: previousWeekEnd },
+        })
+      ),
     ]);
 
     const caseIncrease =
@@ -129,7 +137,11 @@ export const dashboardService = {
 
   async getWeeklyTrends(query: WeeklyTrendsQuery, user: AuthUser) {
     const weeksCount = Math.min(52, Math.max(4, parseInt(query.weeks ?? '12', 10) || 12));
-    const { caseWhere, reportWhere } = buildScopedFilters(query, user);
+    const { caseWhere } = buildScopedFilters(query, user);
+    const scopedBarangay = scopeByRole(user, query.barangayId);
+    const reportScope: Prisma.RiskReportWhereInput = scopedBarangay
+      ? { barangayId: scopedBarangay }
+      : {};
     const buckets = buildWeeklyBuckets(weeksCount);
 
     const trends = [];
@@ -139,10 +151,12 @@ export const dashboardService = {
           ...caseWhere,
           dateReported: { gte: bucket.start, lt: bucket.end },
         }),
-        dashboardRepository.countReports({
-          ...reportWhere,
-          dateReported: { gte: bucket.start, lt: bucket.end },
-        }),
+        dashboardRepository.countReports(
+          withApprovedRiskReports({
+            ...reportScope,
+            dateReported: { gte: bucket.start, lt: bucket.end },
+          })
+        ),
       ]);
       trends.push({ week: bucket.label, cases, reports });
     }
@@ -195,11 +209,12 @@ export const dashboardService = {
 
         const [caseCount, reportCount, activeAlerts] = await Promise.all([
           dashboardRepository.countCases(caseWhere),
-          dashboardRepository.countReports({
-            status: 'APPROVED',
+        dashboardRepository.countReports(
+          withApprovedRiskReports({
             barangayId: b.id,
             dateReported: { gte: startDate, lte: endDate },
-          }),
+          })
+        ),
           dashboardRepository.countAlerts({ barangayId: b.id, status: 'ACTIVE' }),
         ]);
 

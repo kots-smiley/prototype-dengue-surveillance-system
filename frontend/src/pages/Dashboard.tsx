@@ -22,6 +22,7 @@ import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { Button } from '../components/ui/Button';
 import { useApiResource } from '../hooks/useApiResource';
+import { useAuth } from '../hooks/useAuth';
 import { dashboardService } from '../services/dashboard-service';
 import { diseaseService } from '../services/disease-service';
 
@@ -29,18 +30,26 @@ const FALLBACK_COLORS = ['#0ea5e9', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', 
 
 export default function Dashboard() {
   const [diseaseId, setDiseaseId] = useState('');
+  const { user } = useAuth();
+  const isBhw = user?.role === 'BHW';
 
   const { data: diseasesData } = useApiResource(() => diseaseService.list({ isActive: 'true' }), []);
   const { data, loading } = useApiResource(
-    () =>
-      Promise.all([
+    async () => {
+      const [statsRes, trendsRes, weeklyRes, breakdownRes] = await Promise.all([
         dashboardService.stats({ diseaseId: diseaseId || undefined }),
         dashboardService.trends({ diseaseId: diseaseId || undefined, months: 12 }),
         dashboardService.weeklyTrends({ diseaseId: diseaseId || undefined, weeks: 12 }),
         dashboardService.diseaseBreakdown(),
-        dashboardService.barangayCases({ diseaseId: diseaseId || undefined }),
-      ]),
-    [diseaseId],
+      ]);
+
+      const barangayCasesRes = isBhw
+        ? null
+        : await dashboardService.barangayCases({ diseaseId: diseaseId || undefined });
+
+      return { statsRes, trendsRes, weeklyRes, breakdownRes, barangayCasesRes };
+    },
+    [diseaseId, isBhw],
     { errorMessage: 'Failed to load dashboard data' }
   );
 
@@ -48,13 +57,16 @@ export default function Dashboard() {
     return <Spinner label="Loading dashboard..." />;
   }
 
-  const [statsRes, trendsRes, weeklyRes, breakdownRes, barangayCases] = data;
+  const { statsRes, trendsRes, weeklyRes, breakdownRes, barangayCasesRes } = data;
   const stats = statsRes.data.stats;
   const trends = trendsRes.data.trends;
   const weeklyTrends = weeklyRes.data.trends;
   const breakdown = breakdownRes.data.breakdown;
-  const barangays = [...barangayCases.data].sort((a, b) => b.caseCount - a.caseCount);
   const diseases = diseasesData?.data.diseases ?? [];
+
+  const barangays = barangayCasesRes
+    ? [...barangayCasesRes.data].sort((a, b) => b.caseCount - a.caseCount)
+    : [];
   const maxCases = Math.max(...barangays.map((b) => b.caseCount), 1);
 
   const barColor = (count: number) => {
@@ -65,11 +77,17 @@ export default function Dashboard() {
     return '#10b981';
   };
 
+  const dashboardSubtitle = isBhw
+    ? user?.barangay?.name
+      ? `${user.barangay.name} surveillance overview`
+      : 'Barangay surveillance overview'
+    : 'Municipality-wide disease surveillance overview';
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        subtitle="Municipality-wide disease surveillance overview"
+        subtitle={dashboardSubtitle}
         actions={
           <Link to="/analytics">
             <Button variant="secondary">View Analytics</Button>
@@ -116,7 +134,7 @@ export default function Dashboard() {
           hint="Approved environmental reports"
           index={6}
         />
-        <StatCard label="Barangays" value={stats.totalBarangays} index={7} />
+        {!isBhw && <StatCard label="Barangays" value={stats.totalBarangays} index={7} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -175,22 +193,24 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card title="Cases by barangay" subtitle="Relative barangay burden using color and labels.">
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={barangays} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} interval={0} tick={{ fontSize: 12 }} />
-            <YAxis allowDecimals={false} />
-            <Tooltip formatter={(value: number) => [value, 'Cases']} />
-            <Legend />
-            <Bar dataKey="caseCount" name="Cases" radius={[6, 6, 0, 0]}>
-              {barangays.map((entry) => (
-                <Cell key={entry.id} fill={barColor(entry.caseCount)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
+      {!isBhw && (
+        <Card title="Cases by barangay" subtitle="Relative barangay burden using color and labels.">
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={barangays} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} interval={0} tick={{ fontSize: 12 }} />
+              <YAxis allowDecimals={false} />
+              <Tooltip formatter={(value: number) => [value, 'Cases']} />
+              <Legend />
+              <Bar dataKey="caseCount" name="Cases" radius={[6, 6, 0, 0]}>
+                {barangays.map((entry) => (
+                  <Cell key={entry.id} fill={barColor(entry.caseCount)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
     </div>
   );
 }

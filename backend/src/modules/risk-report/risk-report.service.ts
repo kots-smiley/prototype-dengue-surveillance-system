@@ -12,6 +12,7 @@ import { AppError } from '../../helper/app-error';
 import { parsePagination, buildPaginationMeta } from '../../helper/pagination';
 import { AuthUser } from '../../types';
 import { RiskReportStatus, RiskReportSource, UserRole } from '../../configuration/constants';
+import { approvedRiskReportWhere } from '../../helper/risk-report-filter';
 
 function scheduleEarlyWarning(barangayId: string): void {
   setImmediate(() => {
@@ -29,9 +30,9 @@ function assertCanReview(user: AuthUser): void {
 
 export const riskReportService = {
   async list(query: ListRiskReportQuery, user: AuthUser) {
-    const where: Prisma.RiskReportWhereInput = {
-      status: query.status ?? RiskReportStatus.APPROVED,
-    };
+    const where: Prisma.RiskReportWhereInput = query.status
+      ? { status: query.status }
+      : { ...approvedRiskReportWhere };
 
     if (user.role === 'BHW' && user.barangayId) {
       where.barangayId = user.barangayId;
@@ -109,7 +110,7 @@ export const riskReportService = {
 
     const updated = await riskReportRepository.update(id, data);
 
-    if (existing.status === RiskReportStatus.APPROVED) {
+    if (!existing.status || existing.status === RiskReportStatus.APPROVED) {
       scheduleEarlyWarning(barangayId ?? existing.barangayId);
     }
     return updated;
@@ -152,7 +153,7 @@ export const riskReportService = {
       throw new AppError('Risk report not found', 404);
     }
     await riskReportRepository.delete(id);
-    if (existing.status === RiskReportStatus.APPROVED) {
+    if (!existing.status || existing.status === RiskReportStatus.APPROVED) {
       scheduleEarlyWarning(existing.barangayId);
     }
   },

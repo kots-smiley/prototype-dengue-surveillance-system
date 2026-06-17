@@ -10,6 +10,7 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { ConfirmModal } from '../components/ui/Modal';
 import { useApiResource } from '../hooks/useApiResource';
+import { useAuth } from '../hooks/useAuth';
 import { patientService } from '../services/patient-service';
 import {
   immunizationService,
@@ -36,6 +37,7 @@ import { PrintPreviewModal } from '../components/clinical/PrintPreviewModal';
 import { PrescriptionPrint } from '../components/clinical/PrescriptionPrint';
 import { ReferralPrint } from '../components/clinical/ReferralPrint';
 import { TerminologyCombobox } from '../components/clinical/TerminologyCombobox';
+import { ApiError } from '../utils/api-client';
 
 type Tab =
   | 'encounters'
@@ -931,7 +933,9 @@ function LabsTab({ patient, onChange }: { patient: Patient; onChange: () => void
 }
 
 function ReferralsTab({ patient, onChange }: { patient: Patient; onChange: () => void }) {
+  const { user } = useAuth();
   const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [fromFacilityId, setFromFacilityId] = useState('');
   const [toFacilityId, setToFacilityId] = useState('');
   const [reason, setReason] = useState('');
   const [priority, setPriority] = useState('ROUTINE');
@@ -940,46 +944,80 @@ function ReferralsTab({ patient, onChange }: { patient: Patient; onChange: () =>
   useEffect(() => {
     facilityService
       .list({ isActive: 'true' })
-      .then((res) => setFacilities(res.data.facilities))
+      .then((res) => {
+        const list = res.data.facilities;
+        setFacilities(list);
+        const defaultFrom = user?.facilityId ?? patient.homeFacilityId ?? list[0]?.id ?? '';
+        setFromFacilityId(defaultFrom);
+      })
       .catch(() => undefined);
-  }, []);
+  }, [patient.homeFacilityId, user?.facilityId]);
+
+  const receivingFacilities = facilities.filter((f) => f.id !== fromFacilityId);
 
   const create = async () => {
-    if (!toFacilityId || !reason.trim()) {
-      toast.error('Receiving facility and reason are required');
+    if (!fromFacilityId || !toFacilityId || !reason.trim()) {
+      toast.error('Referring facility, receiving facility, and reason are required');
       return;
     }
     try {
-      await referralService.create({ patientId: patient.id, toFacilityId, reason: reason.trim(), priority });
+      await referralService.create({
+        patientId: patient.id,
+        fromFacilityId,
+        toFacilityId,
+        reason: reason.trim(),
+        priority,
+      });
       setToFacilityId('');
       setReason('');
       onChange();
       toast.success('Referral created');
-    } catch {
-      toast.error('Failed to create referral');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to create referral');
     }
   };
 
   return (
     <Card title="Referrals" subtitle="Refer this patient to another facility (continuity of care).">
-      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr,1fr,auto,auto]">
-        <Select value={toFacilityId} onChange={(e) => setToFacilityId(e.target.value)}>
-          <option value="">Receiving facility…</option>
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr,1fr,1fr,auto,auto]">
+        <Select
+          label="Referring facility"
+          value={fromFacilityId}
+          onChange={(e) => {
+            setFromFacilityId(e.target.value);
+            if (e.target.value === toFacilityId) setToFacilityId('');
+          }}
+        >
+          <option value="">Select referring facility…</option>
           {facilities.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name}
             </option>
           ))}
         </Select>
-        <Input placeholder="Reason for referral" value={reason} onChange={(e) => setReason(e.target.value)} />
-        <Select value={priority} onChange={(e) => setPriority(e.target.value)}>
+        <Select
+          label="Receiving facility"
+          value={toFacilityId}
+          onChange={(e) => setToFacilityId(e.target.value)}
+        >
+          <option value="">Select receiving facility…</option>
+          {receivingFacilities.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </Select>
+        <Input label="Reason" placeholder="Reason for referral" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Select label="Priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
           {REFERRAL_PRIORITY_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
         </Select>
-        <Button onClick={create}>Refer</Button>
+        <div className="flex items-end">
+          <Button onClick={create}>Refer</Button>
+        </div>
       </div>
       {(patient.referrals?.length ?? 0) === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">No referrals for this patient.</p>

@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { prisma } from '../../configuration/prisma';
 import { referralRepository } from './referral.repository';
 import {
   CreateReferralInput,
@@ -23,9 +24,21 @@ export const referralService = {
   },
 
   async create(input: CreateReferralInput, user: AuthUser) {
-    const fromFacilityId = input.fromFacilityId ?? user.facilityId;
+    const patient = await prisma.patient.findUnique({
+      where: { id: input.patientId },
+      select: { homeFacilityId: true },
+    });
+    if (!patient) {
+      throw new AppError('Patient not found', 404);
+    }
+
+    const fromFacilityId =
+      input.fromFacilityId ?? user.facilityId ?? patient.homeFacilityId ?? undefined;
     if (!fromFacilityId) {
-      throw new AppError('A referring facility is required (assign the provider to a facility)', 400);
+      throw new AppError(
+        'Select a referring facility (or assign the provider / patient to a facility)',
+        400
+      );
     }
     if (fromFacilityId === input.toFacilityId) {
       throw new AppError('Referring and receiving facilities must differ', 400);
